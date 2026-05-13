@@ -24,3 +24,5 @@ Thumbs.db
 
 # pnpm
 pnpm-workspace.yaml
+
+server/codegen
