@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
-const ACL4SSR_DIR = path.resolve(ROOT, '..')
+const ACL4SSR_DIR = path.resolve(ROOT, 'ACL4SSR')
 const CLASH_DIR = path.join(ACL4SSR_DIR, 'Clash')
 const RULESET_DIR = path.join(CLASH_DIR, 'Ruleset')
 const CONFIG_DIR = path.join(CLASH_DIR, 'config')

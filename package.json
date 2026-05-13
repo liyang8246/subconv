@@ -7,8 +7,9 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare",
-    "codegen": "npx tsx scripts/codegen.ts"
+    "prepare": "nuxt prepare",
+    "postinstall": "run-p codegen prepare",
+    "codegen": "tsx scripts/codegen.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.0",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.0.0",
+    "npm-run-all": "^4.1.5",
     "typescript": "~5.7.0",
     "tsx": "^4.19.0"
   }
