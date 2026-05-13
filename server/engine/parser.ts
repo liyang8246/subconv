@@ -1,14 +1,7 @@
-// ============================================================
-// Subscription parser: detect format, decode, extract proxies
-// Handles: Clash YAML, Base64 share links, multi-subscription merge
-// ============================================================
-
-import { parse as parseYaml } from 'yaml'
+// @env node
+// Subscription parser: detect format (YAML / Base64 / share links), decode, extract proxies
 import type { ClashProxy } from './types'
-
-// ──────────────────────────────────────────────
-// Utility: Base64 detection and decoding
-// ──────────────────────────────────────────────
+import { parse as parseYaml } from 'yaml'
 
 function isShareLinkContent(text: string): boolean {
   return /^(ss|ssr|vmess|trojan|vless|hysteria2?|tuic):\/\//m.test(text.trim())
@@ -36,9 +29,7 @@ function looksLikeBase64(str: string): boolean {
   return /^[A-Za-z0-9+/=\s\r\n]+$/.test(trimmed) && trimmed.length > 20
 }
 
-// ──────────────────────────────────────────────
-// Share link parsers (ss:// ssr:// vmess:// etc.)
-// ──────────────────────────────────────────────
+// Share link parsers
 
 function urlSafeBase64Decode(str: string): string {
   try {
@@ -388,9 +379,7 @@ export function parseShareLinks(content: string): ClashProxy[] {
   return proxies
 }
 
-// ──────────────────────────────────────────────
 // YAML parsing
-// ──────────────────────────────────────────────
 
 export function extractProxies(doc: Record<string, unknown>): ClashProxy[] {
   const raw = (doc.proxies || doc.Proxy || []) as ClashProxy[]
@@ -403,9 +392,7 @@ export function extractProxies(doc: Record<string, unknown>): ClashProxy[] {
   }))
 }
 
-// ──────────────────────────────────────────────
 // Main content parsing
-// ──────────────────────────────────────────────
 
 /**
  * Parse any subscription content.
@@ -474,11 +461,7 @@ export function parseContent(text: string): ClashProxy[] {
   return []
 }
 
-// ──────────────────────────────────────────────
-// HTTP fetch
-// ──────────────────────────────────────────────
-
-/** Clash-compatible User-Agent strings to try */
+/** Clash-compatible User-Agent strings */
 const UA_LIST = [
   'ClashX/1.0',
   'ClashForAndroid/3.0',
@@ -487,7 +470,7 @@ const UA_LIST = [
   'Clash.Meta/1.0',
 ]
 
-export async function fetchAndParse(url: string): Promise<{ proxies: ClashProxy[], filename?: string }> {
+export async function fetchAndParse(url: string): Promise<{ proxies: ClashProxy[], filename?: string, userinfo?: string }> {
   try {
     // Rotate through Clash-compatible UAs so providers return proper format
     const ua = UA_LIST[Math.floor(Math.random() * UA_LIST.length)]
@@ -500,6 +483,9 @@ export async function fetchAndParse(url: string): Promise<{ proxies: ClashProxy[
       signal: AbortSignal.timeout(15000),
     })
     if (!response.ok) return { proxies: [] }
+
+    // Forward upstream subscription-userinfo (traffic/expiry) so Clash clients can display it
+    const userinfo = response.headers.get('subscription-userinfo') || undefined
 
     // Try to extract filename from upstream Content-Disposition header
     let filename: string | undefined
@@ -534,34 +520,90 @@ export async function fetchAndParse(url: string): Promise<{ proxies: ClashProxy[
 
     const text = await response.text()
     const proxies = parseContent(text)
-    return { proxies, filename }
+    return { proxies, filename, userinfo }
   }
   catch {
     return { proxies: [] }
   }
 }
 
-// ──────────────────────────────────────────────
-// Multi-subscription resolver
-// ──────────────────────────────────────────────
+interface UserinfoFields {
+  upload?: number
+  download?: number
+  total?: number
+  expire?: number
+}
 
-export async function resolveInput(urlParam: string): Promise<{ proxies: ClashProxy[], filename?: string }> {
+function parseUserinfo(header: string): UserinfoFields {
+  const fields: UserinfoFields = {}
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=')
+    if (eq === -1) continue
+    const key = part.slice(0, eq).trim()
+    const val = Number(part.slice(eq + 1).trim())
+    if (Number.isNaN(val)) continue
+    switch (key) {
+      case 'upload': fields.upload = val; break
+      case 'download': fields.download = val; break
+      case 'total': fields.total = val; break
+      case 'expire': fields.expire = val; break
+    }
+  }
+  return fields
+}
+
+function serializeUserinfo(fields: UserinfoFields): string {
+  const parts: string[] = []
+  if (fields.upload !== undefined) parts.push(`upload=${Math.round(fields.upload)}`)
+  if (fields.download !== undefined) parts.push(`download=${Math.round(fields.download)}`)
+  if (fields.total !== undefined) parts.push(`total=${Math.round(fields.total)}`)
+  if (fields.expire !== undefined) parts.push(`expire=${Math.round(fields.expire)}`)
+  return parts.join('; ')
+}
+
+/**
+ * Merge multiple subscription-userinfo headers.
+ * upload / download / total are summed (traffic pools).
+ * expire takes the earliest (safest conservative estimate).
+ */
+function mergeUserinfo(all: UserinfoFields[]): UserinfoFields | undefined {
+  if (all.length === 0) return undefined
+
+  const merged: UserinfoFields = {}
+  let hasTraffic = false
+
+  for (const f of all) {
+    if (f.upload !== undefined || f.download !== undefined || f.total !== undefined) {
+      merged.upload = (merged.upload ?? 0) + (f.upload ?? 0)
+      merged.download = (merged.download ?? 0) + (f.download ?? 0)
+      merged.total = (merged.total ?? 0) + (f.total ?? 0)
+      hasTraffic = true
+    }
+    if (f.expire !== undefined) {
+      merged.expire = merged.expire !== undefined ? Math.min(merged.expire, f.expire) : f.expire
+    }
+  }
+
+  return hasTraffic || merged.expire !== undefined ? merged : undefined
+}
+
+export async function resolveInput(urlParam: string): Promise<{ proxies: ClashProxy[], filename?: string, userinfo?: string }> {
   const urls = urlParam.split('|').map(u => u.trim()).filter(Boolean)
   const allProxies: ClashProxy[] = []
   const seen = new Set<string>()
   let firstFilename: string | undefined
+  const userinfos: UserinfoFields[] = []
 
   for (const rawUrl of urls) {
     let url = rawUrl
     try {
       url = decodeURIComponent(rawUrl)
     }
-    catch {
-      // already decoded or invalid
-    }
+    catch { /* already decoded */ }
 
-    const { proxies, filename } = await fetchAndParse(url)
+    const { proxies, filename, userinfo: ui } = await fetchAndParse(url)
     if (filename && !firstFilename) firstFilename = filename
+    if (ui) userinfos.push(parseUserinfo(ui))
 
     for (const p of proxies) {
       const key = `${p.type}:${p.server}:${p.port}:${p.name}`
@@ -572,5 +614,10 @@ export async function resolveInput(urlParam: string): Promise<{ proxies: ClashPr
     }
   }
 
-  return { proxies: allProxies, filename: firstFilename }
+  const merged = mergeUserinfo(userinfos)
+  return {
+    proxies: allProxies,
+    filename: firstFilename,
+    userinfo: merged ? serializeUserinfo(merged) : undefined,
+  }
 }

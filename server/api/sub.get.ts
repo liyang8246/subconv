@@ -1,7 +1,4 @@
-// ============================================================
-// GET /api/sub — Shareable subscription link endpoint
-// ============================================================
-
+// @env node
 import type { ConvertOptions } from '../engine/types'
 import { resolveInput } from '../engine/parser'
 import { processProxies } from '../engine/pipeline'
@@ -31,7 +28,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const { proxies: rawProxies, filename: upstreamFilename } = await resolveInput(options.url)
+    const { proxies: rawProxies, filename: upstreamFilename, userinfo } = await resolveInput(options.url)
     if (rawProxies.length === 0) {
       setHeader(event, 'content-type', 'text/plain')
       return '# No proxies found'
@@ -46,9 +43,14 @@ export default defineEventHandler(async (event) => {
     })
 
     setHeader(event, 'content-type', 'text/yaml; charset=utf-8')
+
+    // Forward upstream subscription-userinfo so Clash clients show traffic / expiry
+    if (userinfo) setHeader(event, 'subscription-userinfo', userinfo)
+
     const filename = String(query.filename || upstreamFilename || 'subscription')
     const encoded = encodeURIComponent(filename)
     setHeader(event, 'content-disposition', `attachment; filename="${encoded}.yaml"; filename*=UTF-8''${encoded}.yaml`)
+
     return config
   }
   catch (err) {
