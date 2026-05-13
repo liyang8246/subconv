@@ -1,0 +1,26 @@
+{
+  "name": "subconv-nuxt",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "codegen": "npx tsx scripts/codegen.ts"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "nuxt": "^4.0.0",
+    "tailwindcss": "^4.0.0",
+    "vue": "latest",
+    "vue-router": "latest",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.0.0",
+    "typescript": "~5.7.0",
+    "tsx": "^4.19.0"
+  }
+}
