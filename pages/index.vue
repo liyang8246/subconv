@@ -136,7 +136,7 @@ async function copyShortLink() {
         <div class="justify-end card-actions">
           <button
             class="btn btn-primary"
-            :disabled="!url.trim()"
+            :disabled="!url.trim() || !selectedPreset"
             @click="handleGenerate"
           >
             生成订阅链接
