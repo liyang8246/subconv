@@ -4,14 +4,14 @@
 // ============================================================
 
 import { stringify } from 'yaml'
-import type { ClashProxy, ProxyGroup, RulesetEntry, Preset, GroupRef } from './types'
+import type { ClashProxy, ProxyGroup, RulesetEntry, GroupRef } from './types'
 import { getPresetByName } from '../codegen'
 
 /**
  * Convert a GroupRef to a Clash proxy-group member name.
  * Handles: group reference, pattern, DIRECT, REJECT.
  */
-function groupRefToMember(ref: GroupRef, groups: ProxyGroup[]): string {
+function groupRefToMember(ref: GroupRef, _groups: ProxyGroup[]): string {
   switch (ref.kind) {
     case 'group':
       return ref.name
@@ -51,7 +51,8 @@ function buildProxyGroups(
               .filter(p => re.test(p.name))
               .map(p => p.name)
             return matched.length > 0 ? matched : []
-          } catch {
+          }
+          catch {
             return []
           }
         }
@@ -96,10 +97,12 @@ function buildRules(
         // FINAL → MATCH,group
         if (trimmed.toUpperCase() === 'FINAL' || trimmed.toUpperCase() === 'MATCH') {
           rules.push(`MATCH,${entry.group}`)
-        } else {
+        }
+        else {
           rules.push(`${trimmed},${entry.group}`)
         }
-      } else {
+      }
+      else {
         // Standard rule lines already contain the rule type
         rules.push(`${trimmed},${entry.group}`)
       }
@@ -114,7 +117,7 @@ function buildRules(
  */
 export function generateClashConfig(
   proxies: ClashProxy[],
-  options: { preset?: string; port?: number; socksPort?: number; mode?: string },
+  options: { preset?: string, port?: number, socksPort?: number, mode?: string },
 ): string {
   const port = options.port ?? 7890
   const socksPort = options.socksPort ?? 7891
@@ -146,16 +149,16 @@ export function generateClashConfig(
     'allow-lan': false,
     'log-level': 'info',
     'external-controller': '0.0.0.0:9090',
-    secret: '',
-    dns: {
-      enable: true,
-      listen: '0.0.0.0:1053',
+    'secret': '',
+    'dns': {
+      'enable': true,
+      'listen': '0.0.0.0:1053',
       'enhanced-mode': 'fake-ip',
       'fake-ip-range': '198.18.0.1/16',
-      nameserver: ['114.114.114.114', '223.5.5.5'],
-      fallback: ['8.8.8.8', '1.1.1.1'],
+      'nameserver': ['114.114.114.114', '223.5.5.5'],
+      'fallback': ['8.8.8.8', '1.1.1.1'],
       'fallback-filter': {
-        geoip: true,
+        'geoip': true,
         'geoip-code': 'CN',
       },
     },
@@ -183,7 +186,7 @@ export function generateClashConfig(
 export function generateClashMetaConfig(
   proxies: ClashProxy[],
   subscriptionUrl: string,
-  options: { preset?: string; port?: number },
+  options: { preset?: string, port?: number },
 ): string {
   // Similar to generateClashConfig but with proxy-provider references
   const config = generateClashConfig(proxies, options)

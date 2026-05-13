@@ -4,7 +4,7 @@
 // ============================================================
 
 import { parse as parseYaml } from 'yaml'
-import type { ClashProxy, ClashSubscription } from './types'
+import type { ClashProxy } from './types'
 
 // ──────────────────────────────────────────────
 // Utility: Base64 detection and decoding
@@ -22,7 +22,8 @@ function base64Decode(str: string): string {
   try {
     const clean = str.replace(/[\s\r\n\t]+/g, '')
     return Buffer.from(clean, 'base64').toString('utf-8')
-  } catch {
+  }
+  catch {
     return str
   }
 }
@@ -47,7 +48,8 @@ function urlSafeBase64Decode(str: string): string {
     // Pad if needed
     const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
     return Buffer.from(padded, 'base64').toString('utf-8')
-  } catch {
+  }
+  catch {
     return str
   }
 }
@@ -62,7 +64,7 @@ function parseSS(uri: string): ClashProxy | null {
 
     // SS original style: ss://base64(method:password)@server:port
     // SIP002 style: ss://method:password@server:port
-    let userInfo = decodeURIComponent(url.username)
+    const userInfo = decodeURIComponent(url.username)
     if (!userInfo) return null
 
     // If userInfo is pure base64, decode it (original style)
@@ -74,7 +76,8 @@ function parseSS(uri: string): ClashProxy | null {
       if (colon === -1) return null
       method = decoded.slice(0, colon)
       password = decoded.slice(colon + 1)
-    } else {
+    }
+    else {
       // SIP002: method:password in the user part
       const colon = userInfo.indexOf(':')
       if (colon === -1) return null
@@ -107,7 +110,8 @@ function parseSS(uri: string): ClashProxy | null {
     }
 
     return result as ClashProxy
-  } catch {
+  }
+  catch {
     return null
   }
 }
@@ -119,22 +123,25 @@ function parseVMess(uri: string): ClashProxy | null {
     const jsonStr = urlSafeBase64Decode(body.trim())
     const cfg = JSON.parse(jsonStr)
     return {
-      name: cfg.ps || cfg.remark || `${cfg.add}:${cfg.port}`,
-      type: 'vmess',
-      server: cfg.add || cfg.host || '',
-      port: Number.parseInt(cfg.port) || 443,
-      uuid: cfg.id || '',
-      alterId: cfg.aid ?? 0,
-      cipher: cfg.scy || cfg.security || 'auto',
-      network: cfg.net || 'tcp',
-      'ws-opts': cfg.net === 'ws' ? {
-        path: cfg.path || '/',
-        headers: { Host: cfg.host || cfg.sni || '' },
-      } : undefined,
-      tls: cfg.tls === 'tls',
-      servername: cfg.sni || undefined,
+      'name': cfg.ps || cfg.remark || `${cfg.add}:${cfg.port}`,
+      'type': 'vmess',
+      'server': cfg.add || cfg.host || '',
+      'port': Number.parseInt(cfg.port) || 443,
+      'uuid': cfg.id || '',
+      'alterId': cfg.aid ?? 0,
+      'cipher': cfg.scy || cfg.security || 'auto',
+      'network': cfg.net || 'tcp',
+      'ws-opts': cfg.net === 'ws'
+        ? {
+            path: cfg.path || '/',
+            headers: { Host: cfg.host || cfg.sni || '' },
+          }
+        : undefined,
+      'tls': cfg.tls === 'tls',
+      'servername': cfg.sni || undefined,
     } as ClashProxy
-  } catch {
+  }
+  catch {
     return null
   }
 }
@@ -166,17 +173,18 @@ function parseSSR(uri: string): ClashProxy | null {
 
     return {
       name,
-      type: 'ssr',
+      'type': 'ssr',
       server,
       port,
-      cipher: method,
+      'cipher': method,
       password,
       protocol,
       'protocol-param': protocolParam || undefined,
       obfs,
       'obfs-param': obfsParam || undefined,
     } as ClashProxy
-  } catch {
+  }
+  catch {
     return null
   }
 }
@@ -194,15 +202,16 @@ function parseTrojan(uri: string): ClashProxy | null {
 
     return {
       name,
-      type: 'trojan',
+      'type': 'trojan',
       server,
       port,
       password,
       sni,
       'skip-cert-verify': skipCert || undefined,
-      udp: url.searchParams.has('udp') ? url.searchParams.get('udp') === '1' : undefined,
+      'udp': url.searchParams.has('udp') ? url.searchParams.get('udp') === '1' : undefined,
     } as ClashProxy
-  } catch {
+  }
+  catch {
     return null
   }
 }
@@ -226,19 +235,21 @@ function parseVLESS(uri: string): ClashProxy | null {
 
     const result: Record<string, unknown> = {
       name,
-      type: 'vless',
+      'type': 'vless',
       server,
       port,
       uuid,
       encryption,
-      network: networkType,
+      'network': networkType,
       sni,
-      servername: sni,
-      flow: flow || undefined,
-      'reality-opts': realityKey ? {
-        'public-key': realityKey,
-        'short-id': url.searchParams.get('sid') || '',
-      } : undefined,
+      'servername': sni,
+      'flow': flow || undefined,
+      'reality-opts': realityKey
+        ? {
+            'public-key': realityKey,
+            'short-id': url.searchParams.get('sid') || '',
+          }
+        : undefined,
       fingerprint,
     }
 
@@ -264,7 +275,8 @@ function parseVLESS(uri: string): ClashProxy | null {
     }
 
     return result as ClashProxy
-  } catch {
+  }
+  catch {
     return null
   }
 }
@@ -286,7 +298,7 @@ function parseHysteria2(uri: string): ClashProxy | null {
 
     return {
       name,
-      type: 'hysteria2',
+      'type': 'hysteria2',
       server,
       port,
       password,
@@ -294,10 +306,11 @@ function parseHysteria2(uri: string): ClashProxy | null {
       'skip-cert-verify': skipCert || undefined,
       obfs,
       'obfs-password': obfsPassword,
-      up: upMbps,
-      down: downMbps,
+      'up': upMbps,
+      'down': downMbps,
     } as ClashProxy
-  } catch {
+  }
+  catch {
     return null
   }
 }
@@ -318,7 +331,7 @@ function parseTUIC(uri: string): ClashProxy | null {
 
     return {
       name,
-      type: 'tuic',
+      'type': 'tuic',
       server,
       port,
       uuid,
@@ -328,7 +341,8 @@ function parseTUIC(uri: string): ClashProxy | null {
       alpn,
       'congestion-controller': congestion,
     } as ClashProxy
-  } catch {
+  }
+  catch {
     return null
   }
 }
@@ -409,7 +423,8 @@ export function parseContent(text: string): ClashProxy[] {
         const proxies = extractProxies(doc)
         if (proxies.length > 0) return proxies
       }
-    } catch {
+    }
+    catch {
       // Not valid YAML, continue
     }
   }
@@ -432,7 +447,8 @@ export function parseContent(text: string): ClashProxy[] {
       try {
         const doc = parseYaml(decoded) as Record<string, unknown>
         return extractProxies(doc)
-      } catch {
+      }
+      catch {
         // Try one more Base64 layer
         if (looksLikeBase64(decoded)) {
           decoded = base64Decode(decoded).trim()
@@ -443,7 +459,8 @@ export function parseContent(text: string): ClashProxy[] {
             try {
               const doc2 = parseYaml(decoded) as Record<string, unknown>
               return extractProxies(doc2)
-            } catch { /* fall through */ }
+            }
+            catch { /* fall through */ }
           }
         }
       }
@@ -477,7 +494,7 @@ export async function fetchAndParse(url: string): Promise<ClashProxy[]> {
     const response = await fetch(url, {
       headers: {
         'User-Agent': ua,
-        Accept: 'text/plain, application/yaml, */*',
+        'Accept': 'text/plain, application/yaml, */*',
         'Profile-Update-Interval': '24',
       },
       signal: AbortSignal.timeout(15000),
@@ -485,7 +502,8 @@ export async function fetchAndParse(url: string): Promise<ClashProxy[]> {
     if (!response.ok) return []
     const text = await response.text()
     return parseContent(text)
-  } catch {
+  }
+  catch {
     return []
   }
 }
@@ -503,7 +521,8 @@ export async function resolveInput(urlParam: string): Promise<ClashProxy[]> {
     let url = rawUrl
     try {
       url = decodeURIComponent(rawUrl)
-    } catch {
+    }
+    catch {
       // already decoded or invalid
     }
 

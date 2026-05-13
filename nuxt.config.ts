@@ -2,18 +2,18 @@
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
-  compatibilityVersion: 4,
   modules: ['@nuxt/eslint'],
+  css: ['~/assets/css/main.css'],
+  nitro: {
+    preset: 'vercel',
+  },
+  vite: {
+    plugins: [tailwindcss()],
+  },
+  compatibilityVersion: 4,
   eslint: {
     config: {
       stylistic: true,
     },
-  },
-  css: ['~/assets/css/main.css'],
-  vite: {
-    plugins: [tailwindcss()],
-  },
-  nitro: {
-    preset: 'vercel',
   },
 })

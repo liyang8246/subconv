@@ -49,14 +49,15 @@ export default defineEventHandler(async (event): Promise<ConvertResult | { error
     })
 
     // Count rules in the output
-    const ruleCount = (config.match(/^  - /gm) || []).length - processed.length
+    const ruleCount = (config.match(/^ {2}- /gm) || []).length - processed.length
 
     return {
       config,
       proxyCount: processed.length,
       ruleCount: Math.max(0, ruleCount),
     }
-  } catch (err) {
+  }
+  catch (err) {
     console.error('Conversion error:', err)
     throw createError({
       statusCode: 500,

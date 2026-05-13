@@ -13,11 +13,11 @@ export interface ClashProxy {
 
 /** A parsed Clash subscription */
 export interface ClashSubscription {
-  proxies: ClashProxy[]
+  'proxies': ClashProxy[]
   /** Original proxy-groups (discarded) */
   'proxy-groups'?: unknown[]
   /** Original rules (discarded) */
-  rules?: unknown[]
+  'rules'?: unknown[]
   [key: string]: unknown
 }
 
@@ -38,11 +38,11 @@ export interface RulesetEntry {
 export type GroupType = 'select' | 'url-test' | 'fallback' | 'load-balance'
 
 /** A reference to another group, node pattern, or built-in */
-export type GroupRef =
-  | { kind: 'group'; name: string }
-  | { kind: 'pattern'; pattern: string }
-  | { kind: 'direct' }
-  | { kind: 'reject' }
+export type GroupRef
+  = | { kind: 'group', name: string }
+    | { kind: 'pattern', pattern: string }
+    | { kind: 'direct' }
+    | { kind: 'reject' }
 
 /** A parsed proxy group definition */
 export interface ProxyGroup {

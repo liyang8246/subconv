@@ -18,7 +18,8 @@ function applyFilters(
     try {
       const re = new RegExp(options.exclude, 'i')
       result = result.filter(p => !re.test(p.name))
-    } catch {
+    }
+    catch {
       // Invalid regex, skip
     }
   }
@@ -27,7 +28,8 @@ function applyFilters(
     try {
       const re = new RegExp(options.include, 'i')
       result = result.filter(p => re.test(p.name))
-    } catch {
+    }
+    catch {
       // Invalid regex, skip
     }
   }
@@ -45,12 +47,13 @@ function applyRename(
 ): ClashProxy[] {
   if (!renames || renames.length === 0) return proxies
 
-  return proxies.map(p => {
+  return proxies.map((p) => {
     let name = p.name
     for (const [pattern, replacement] of renames) {
       try {
         name = name.replace(new RegExp(pattern, 'gi'), replacement)
-      } catch {
+      }
+      catch {
         // Invalid pattern, skip
       }
     }
@@ -62,10 +65,10 @@ function applyRename(
  * Apply emoji prefixes based on region matching rules.
  */
 function applyEmoji(proxies: ClashProxy[]): ClashProxy[] {
-  return proxies.map(p => {
+  return proxies.map((p) => {
     let name = p.name
     // Remove existing emoji at the start
-    name = name.replace(/^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2B50}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}]+/u, '').trim()
+    name = name.replace(/^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2B50}]+/u, '').trim()
     // Remove old-style flags like [HK], [JP], etc.
     name = name.replace(/^\[([A-Z]{2}|[^\]]+)\]\s*/g, '')
 
@@ -102,7 +105,7 @@ function applyNodeOverrides(
   proxies: ClashProxy[],
   options: Pick<ConvertOptions, 'udp' | 'tfo' | 'scv'>,
 ): ClashProxy[] {
-  return proxies.map(p => {
+  return proxies.map((p) => {
     const result = { ...p }
     if (options.udp !== undefined) result.udp = options.udp
     if (options.tfo !== undefined) result.tfo = options.tfo

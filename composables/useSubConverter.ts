@@ -22,7 +22,8 @@ export function useSubConverter() {
       const data = await $fetch<{ presets: PresetSummary[] }>('/api/presets')
       presets.value = data.presets || []
       presetsLoaded.value = true
-    } catch (e) {
+    }
+    catch (e) {
       console.error('Failed to load presets:', e)
     }
   }
@@ -50,12 +51,15 @@ export function useSubConverter() {
 
       if ('error' in data) {
         error.value = data.error
-      } else {
+      }
+      else {
         result.value = data
       }
-    } catch (e) {
+    }
+    catch (e) {
       error.value = e instanceof Error ? e.message : 'Conversion failed'
-    } finally {
+    }
+    finally {
       loading.value = false
     }
   }

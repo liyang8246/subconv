@@ -44,7 +44,7 @@ function toPascalCase(name: string): string {
 function escapeForTemplate(str: string): string {
   return str
     .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
+    .replace(/'/g, '\\\'')
     .replace(/\r/g, '')
     .replace(/\n/g, '\\n')
 }
@@ -353,7 +353,8 @@ function generatePresetsTs(ruleMap: Map<string, RuleMapEntry>): string {
         const inline = rs.source.slice(2)
         const escaped = escapeForTemplate(inline)
         rulesetDefs.push(`    { group: "${escapeForTemplate(rs.group)}", rules: ["${escaped}"], inline: true }`)
-      } else {
+      }
+      else {
         const localPath = urlToLocalPath(rs.source)
         if (localPath && ruleMap.has(localPath)) {
           rulesetDefs.push(`    { group: "${escapeForTemplate(rs.group)}", rules: _RULES["${escapeForTemplate(localPath)}"] as string[], inline: false }`)
@@ -375,8 +376,7 @@ function generatePresetsTs(ruleMap: Map<string, RuleMapEntry>): string {
 
   // Export ALL_PRESETS
   const presetVars = iniFiles
-    .filter(f => {
-      const bn = f.replace('.ini', '')
+    .filter((f) => {
       const rulesets = parseIniRulesets(path.join(CONFIG_DIR, f))
       const groups = parseIniGroups(path.join(CONFIG_DIR, f))
       return rulesets.length > 0 || groups.length > 0
