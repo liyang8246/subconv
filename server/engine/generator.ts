@@ -61,10 +61,17 @@ function buildProxyGroups(
       .flat()
       .filter(Boolean)
 
+    // Deduplicate
+    const uniqueMembers = [...new Set(members)]
+
+    // If no proxies matched the group's pattern, fallback to DIRECT
+    // to avoid Clash rejecting the config with "use or proxies missing"
+    const proxiesList = uniqueMembers.length > 0 ? uniqueMembers : ['DIRECT']
+
     const result: Record<string, unknown> = {
       name: g.name,
       type: g.type,
-      proxies: [...new Set(members)], // Deduplicate
+      proxies: proxiesList,
     }
 
     if (g.url && g.type !== 'select') {
@@ -79,8 +86,26 @@ function buildProxyGroups(
 }
 
 /**
+ * Rule types supported by Clash (and Clash Meta / Verge).
+ * Lines starting with other types (e.g., URL-REGEX, USER-AGENT, AND, OR, NOT)
+ * are Surge-specific and should be skipped.
+ */
+const CLASH_RULE_TYPES = [
+  'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD',
+  'IP-CIDR', 'IP-CIDR6', 'SRC-IP-CIDR',
+  'GEOIP', 'MATCH', 'FINAL',
+  'SRC-PORT', 'DST-PORT', 'PROCESS-NAME',
+]
+
+function isClashRuleType(line: string): boolean {
+  const upper = line.trim().toUpperCase()
+  return CLASH_RULE_TYPES.some(t => upper.startsWith(t.toUpperCase()))
+}
+
+/**
  * Build Clash rules from ruleset entries.
- * Each ruleset contributes lines like: "RULESET,group,rule" → "RULE-SET,..." or direct "DOMAIN-SUFFIX,..."
+ * Formats: "TYPE,MATCHER" or "TYPE,MATCHER,no-resolve" etc.
+ * We insert the group before flags like "no-resolve" so Clash parses correctly.
  */
 function buildRules(
   rulesets: RulesetEntry[],
@@ -93,8 +118,6 @@ function buildRules(
       if (!trimmed || trimmed.startsWith('#')) continue
 
       if (entry.inline) {
-        // Inline rules: GEOIP,CN → GEOIP,CN,group
-        // FINAL → MATCH,group
         if (trimmed.toUpperCase() === 'FINAL' || trimmed.toUpperCase() === 'MATCH') {
           rules.push(`MATCH,${entry.group}`)
         }
@@ -103,8 +126,21 @@ function buildRules(
         }
       }
       else {
-        // Standard rule lines already contain the rule type
-        rules.push(`${trimmed},${entry.group}`)
+        // Skip rule types not supported by Clash (e.g. URL-REGEX, USER-AGENT from Surge)
+        if (!isClashRuleType(trimmed)) continue
+
+        // Standard rule: may have trailing flags like no-resolve
+        // Insert group before the last field if it's a flag keyword
+        const parts = trimmed.split(',')
+        const last = parts[parts.length - 1].trim().toLowerCase()
+        const flags = ['no-resolve', 'src', 'dst']
+        if (parts.length >= 3 && flags.includes(last)) {
+          parts.splice(parts.length - 1, 0, entry.group)
+          rules.push(parts.join(','))
+        }
+        else {
+          rules.push(`${trimmed},${entry.group}`)
+        }
       }
     }
   }

@@ -487,7 +487,7 @@ const UA_LIST = [
   'Clash.Meta/1.0',
 ]
 
-export async function fetchAndParse(url: string): Promise<ClashProxy[]> {
+export async function fetchAndParse(url: string): Promise<{ proxies: ClashProxy[], filename?: string }> {
   try {
     // Rotate through Clash-compatible UAs so providers return proper format
     const ua = UA_LIST[Math.floor(Math.random() * UA_LIST.length)]
@@ -499,12 +499,45 @@ export async function fetchAndParse(url: string): Promise<ClashProxy[]> {
       },
       signal: AbortSignal.timeout(15000),
     })
-    if (!response.ok) return []
+    if (!response.ok) return { proxies: [] }
+
+    // Try to extract filename from upstream Content-Disposition header
+    let filename: string | undefined
+    const cd = response.headers.get('content-disposition')
+    if (cd) {
+      // 1. Prefer RFC 5987 filename*=UTF-8''percent-encoded
+      const starMatch = cd.match(/filename\*=(?:"[^"]*"|'[^']*'|(?:UTF-8|utf-8)''([^;]*)|[^;]*)/i)
+      if (starMatch) {
+        // Group 1 is the percent-encoded part after charset'lang'
+        const encoded = starMatch[1] || starMatch[0].split("''")[1] || ''
+        if (encoded) {
+          try {
+            filename = decodeURIComponent(encoded.trim())
+          }
+          catch {
+            filename = encoded.trim()
+          }
+        }
+      }
+      if (!filename) {
+        // 2. Fallback to plain filename="..."
+        const plainMatch = cd.match(/filename\s*=\s*((['"])(.*?)\2|[^;]*)/i)
+        if (plainMatch) {
+          filename = (plainMatch[3] || plainMatch[1]).replace(/['"]/g, '')
+        }
+      }
+      // Strip extension
+      if (filename) {
+        filename = filename.replace(/\.(yaml|yml)$/i, '')
+      }
+    }
+
     const text = await response.text()
-    return parseContent(text)
+    const proxies = parseContent(text)
+    return { proxies, filename }
   }
   catch {
-    return []
+    return { proxies: [] }
   }
 }
 
@@ -512,10 +545,11 @@ export async function fetchAndParse(url: string): Promise<ClashProxy[]> {
 // Multi-subscription resolver
 // ──────────────────────────────────────────────
 
-export async function resolveInput(urlParam: string): Promise<ClashProxy[]> {
+export async function resolveInput(urlParam: string): Promise<{ proxies: ClashProxy[], filename?: string }> {
   const urls = urlParam.split('|').map(u => u.trim()).filter(Boolean)
   const allProxies: ClashProxy[] = []
   const seen = new Set<string>()
+  let firstFilename: string | undefined
 
   for (const rawUrl of urls) {
     let url = rawUrl
@@ -526,7 +560,9 @@ export async function resolveInput(urlParam: string): Promise<ClashProxy[]> {
       // already decoded or invalid
     }
 
-    const proxies = await fetchAndParse(url)
+    const { proxies, filename } = await fetchAndParse(url)
+    if (filename && !firstFilename) firstFilename = filename
+
     for (const p of proxies) {
       const key = `${p.type}:${p.server}:${p.port}:${p.name}`
       if (!seen.has(key)) {
@@ -536,5 +572,5 @@ export async function resolveInput(urlParam: string): Promise<ClashProxy[]> {
     }
   }
 
-  return allProxies
+  return { proxies: allProxies, filename: firstFilename }
 }

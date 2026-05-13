@@ -101,6 +101,8 @@ export interface ConvertResult {
   proxyCount: number
   /** Number of rules applied */
   ruleCount: number
+  /** Subscription filename from upstream Content-Disposition header */
+  filename?: string
 }
 
 /** Emoji mapping rule */
