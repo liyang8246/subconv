@@ -24,3 +24,9 @@ pnpm run dev
 Nuxt 4 · Nitro · Vue 3 · TypeScript · Tailwind CSS · DaisyUI
 
 Serverless 部署，无状态设计。Vercel 一键部署。
+
+## 感谢
+
+- [ACL4SSR/ACL4SSR](https://github.com/ACL4SSR/ACL4SSR) — 规则预设
+- [CareyWang/sub-web](https://github.com/CareyWang/sub-web) — 前端灵感
+- [tindy2013/subconverter](https://github.com/tindy2013/subconverter) — 后端灵感
