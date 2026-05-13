@@ -133,7 +133,12 @@ async function copyShortLink() {
 
         <div class="divider my-2"></div>
 
-        <div class="justify-end card-actions">
+        <div class="flex items-center justify-between">
+          <a
+            href="https://github.com/liyang8246/subconv"
+            target="_blank"
+            class="text-sm transition hover:underline"
+          > GitHub </a>
           <button
             class="btn btn-primary"
             :disabled="!url.trim() || !selectedPreset"
