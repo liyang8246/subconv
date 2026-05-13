@@ -85,10 +85,13 @@ async function copyShortLink() {
               </option>
             </select>
             <span
-              v-if="presetDescription"
+              v-if="selectedPreset"
               class="label block whitespace-normal wrap-break-word"
             >
-              {{ presetDescription }}
+              {{ presetDescription || '暂无描述' }}
+            </span>
+            <span v-else class="label block whitespace-normal wrap-break-word">
+              预设详情查看 <a href="https://github.com/ACL4SSR/ACL4SSR/tree/master" target="_blank" class="link link-hover">ACL4SSR</a>
             </span>
           </fieldset>
         </div>
@@ -137,7 +140,7 @@ async function copyShortLink() {
           <a
             href="https://github.com/liyang8246/subconv"
             target="_blank"
-            class="text-sm transition hover:underline"
+            class="text-sm link link-hover"
           > GitHub </a>
           <button
             class="btn btn-primary"
