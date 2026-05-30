@@ -124,9 +124,9 @@ function parseVMess(uri: string): ClashProxy | null {
       'network': cfg.net || 'tcp',
       'ws-opts': cfg.net === 'ws'
         ? {
-            path: cfg.path || '/',
-            headers: { Host: cfg.host || cfg.sni || '' },
-          }
+          path: cfg.path || '/',
+          headers: { Host: cfg.host || cfg.sni || '' },
+        }
         : undefined,
       'tls': cfg.tls === 'tls',
       'servername': cfg.sni || undefined,
@@ -237,9 +237,9 @@ function parseVLESS(uri: string): ClashProxy | null {
       'flow': flow || undefined,
       'reality-opts': realityKey
         ? {
-            'public-key': realityKey,
-            'short-id': url.searchParams.get('sid') || '',
-          }
+          'public-key': realityKey,
+          'short-id': url.searchParams.get('sid') || '',
+        }
         : undefined,
       fingerprint,
     }
@@ -461,22 +461,11 @@ export function parseContent(text: string): ClashProxy[] {
   return []
 }
 
-/** Clash-compatible User-Agent strings */
-const UA_LIST = [
-  'ClashX/1.0',
-  'ClashForAndroid/3.0',
-  'clash-verge/2.0',
-  'clash/1.0',
-  'Clash.Meta/1.0',
-]
-
 export async function fetchAndParse(url: string): Promise<{ proxies: ClashProxy[], filename?: string, userinfo?: string }> {
   try {
-    // Rotate through Clash-compatible UAs so providers return proper format
-    const ua = UA_LIST[Math.floor(Math.random() * UA_LIST.length)]
     const response = await fetch(url, {
       headers: {
-        'User-Agent': ua,
+        'User-Agent': 'Clash Verge/2.5.1',
         'Accept': 'text/plain, application/yaml, */*',
         'Profile-Update-Interval': '24',
       },
