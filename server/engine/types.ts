@@ -1,4 +1,3 @@
-// @env node
 /** A Clash proxy node — fields pass through as-is for unknown protocol keys */
 export interface ClashProxy {
   name: string
@@ -8,11 +7,9 @@ export interface ClashProxy {
   [key: string]: unknown
 }
 
-export type RuleLine = string
-
 export interface RulesetEntry {
   group: string
-  rules: RuleLine[]
+  rules: string[]
   inline: boolean
 }
 

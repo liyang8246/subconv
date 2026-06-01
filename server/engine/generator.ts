@@ -71,16 +71,16 @@ function buildProxyGroups(proxies: ClashProxy[], groups: ProxyGroup[]): object[]
   })
 }
 
-const CLASH_RULE_TYPES = new Set([
+const CLASH_RULE_TYPES = [
   'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD',
   'IP-CIDR', 'IP-CIDR6', 'SRC-IP-CIDR',
   'GEOIP', 'MATCH', 'FINAL',
   'SRC-PORT', 'DST-PORT', 'PROCESS-NAME',
-])
+]
 
 function isClashRuleType(line: string): boolean {
   const upper = line.trim().toUpperCase()
-  return [...CLASH_RULE_TYPES].some(t => upper.startsWith(t))
+  return CLASH_RULE_TYPES.some(t => upper.startsWith(t))
 }
 
 function buildRules(rulesets: RulesetEntry[]): string[] {
