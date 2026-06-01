@@ -22,8 +22,5 @@ Thumbs.db
 # Logs
 *.log
 
-# pnpm
-pnpm-workspace.yaml
-
 server/codegen
 .vercel/
