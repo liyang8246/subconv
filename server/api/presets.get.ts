@@ -1,22 +1,14 @@
 // @env node
-import { getAllPresetNames, getPresetByName } from '../codegen'
+import { ALL_PRESETS } from '../codegen'
 
 export default defineEventHandler(() => {
-  const names = getAllPresetNames()
-  const presets = names
-    .map((name) => {
-      const preset = getPresetByName(name)
-      return preset
-        ? {
-            id: name,
-            name: preset.name,
-            description: preset.description,
-            rulesetCount: preset.rulesets.length,
-            groupCount: preset.groups.length,
-          }
-        : null
-    })
-    .filter(Boolean)
+  const presets = Object.entries(ALL_PRESETS).map(([id, p]) => ({
+    id,
+    name: p.name,
+    description: p.description,
+    rulesetCount: p.rulesets.length,
+    groupCount: p.groups.length,
+  }))
 
   return { presets }
 })

@@ -75,7 +75,7 @@ function tryParseYaml(text: string): ClashProxy[] {
   return []
 }
 
-export function extractProxies(doc: Record<string, unknown>): ClashProxy[] {
+function extractProxies(doc: Record<string, unknown>): ClashProxy[] {
   const raw = (doc.proxies || doc.Proxy || []) as ClashProxy[]
   return raw.map(p => ({
     ...p,
@@ -447,7 +447,7 @@ function parseShareLink(line: string): ClashProxy | null {
  * Parse a block of share links (one per line) into ClashProxy[].
  * Each line is a share link like ss://... or vmess://...
  */
-export function parseShareLinks(content: string): ClashProxy[] {
+function parseShareLinks(content: string): ClashProxy[] {
   const lines = content.split('\n')
   const proxies: ClashProxy[] = []
 
@@ -471,7 +471,7 @@ export function parseShareLinks(content: string): ClashProxy[] {
  *
  * Priority: YAML → share links → base64 decode → (share links → YAML → double-base64)
  */
-export function parseContent(text: string): ClashProxy[] {
+function parseContent(text: string): ClashProxy[] {
   const trimmed = text.trim()
   if (!trimmed) return []
 

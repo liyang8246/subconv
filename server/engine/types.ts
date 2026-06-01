@@ -13,8 +13,6 @@ export interface RulesetEntry {
   inline: boolean
 }
 
-export type GroupType = 'select' | 'url-test' | 'fallback' | 'load-balance'
-
 export type GroupRef =
   | { kind: 'group', name: string }
   | { kind: 'pattern', pattern: string }
@@ -23,7 +21,7 @@ export type GroupRef =
 
 export interface ProxyGroup {
   name: string
-  type: GroupType
+  type: string
   refs: GroupRef[]
   url?: string
   interval?: number
