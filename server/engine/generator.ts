@@ -92,7 +92,7 @@ function buildRules(rulesets: RulesetEntry[]): string[] {
         if (!CLASH_RULE_TYPES.some(t => trimmed.toUpperCase().startsWith(t))) continue
 
         const parts = trimmed.split(',')
-        const last = parts[parts.length - 1].trim().toLowerCase()
+        const last = parts[parts.length - 1]!.trim().toLowerCase()
         if (parts.length >= 3 && RULE_FLAGS.has(last)) {
           parts.splice(parts.length - 1, 0, entry.group)
           rules.push(parts.join(','))

@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 // @env node
 // Subscription parser: detect format (YAML / Base64 / share links), decode, extract proxies
 import type { ClashProxy } from './types'
@@ -108,7 +110,10 @@ function extractFilename(cd: string | null): string | undefined {
   // 2. Fallback to plain filename="..."
   const plainMatch = cd.match(/filename\s*=\s*((['"])(.*?)\2|[^;]*)/i)
   if (plainMatch) {
-    return (plainMatch[3] || plainMatch[1]).replace(/['"]/g, '').replace(/\.(yaml|yml)$/i, '')
+    const raw = plainMatch[3] || plainMatch[1]
+    if (raw) {
+      return raw.replace(/['"]/g, '').replace(/\.(yaml|yml)$/i, '')
+    }
   }
 
   return undefined
@@ -224,16 +229,17 @@ function parseSSR(uri: string): ClashProxy | null {
     const decoded = urlSafeBase64Decode(body.trim())
 
     const mainAndParams = decoded.split('/?')
-    const main = mainAndParams[0].split(':')
+    const mainPart = mainAndParams[0]
+    if (!mainPart) return null
 
+    const main = mainPart.split(':')
     if (main.length < 6) return null
 
-    const server = main[0]
-    const port = Number.parseInt(main[1]) || 443
-    const protocol = main[2]
-    const method = main[3]
-    const obfs = main[4]
-    const password = urlSafeBase64Decode(main[5])
+    const [server, portStr, protocol, method, obfs, passwordB64] = main
+    if (!server || !portStr || !protocol || !method || !obfs || !passwordB64) return null
+
+    const port = Number.parseInt(portStr) || 443
+    const password = urlSafeBase64Decode(passwordB64)
 
     const params = new URLSearchParams(mainAndParams[1] || '')
     const name = urlSafeBase64Decode(params.get('remarks') || '') || `${server}:${port}`
