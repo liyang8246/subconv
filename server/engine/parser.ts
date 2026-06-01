@@ -461,14 +461,16 @@ export function parseContent(text: string): ClashProxy[] {
   return []
 }
 
-export async function fetchAndParse(url: string): Promise<{ proxies: ClashProxy[], filename?: string, userinfo?: string }> {
+export async function fetchAndParse(url: string, userAgent?: string): Promise<{ proxies: ClashProxy[], filename?: string, userinfo?: string }> {
   try {
+    const headers: Record<string, string> = {
+      'Accept': 'text/plain, application/yaml, */*',
+      'Profile-Update-Interval': '24',
+    }
+    if (userAgent) headers['User-Agent'] = userAgent
+
     const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Clash Verge/2.5.1',
-        'Accept': 'text/plain, application/yaml, */*',
-        'Profile-Update-Interval': '24',
-      },
+      headers,
       signal: AbortSignal.timeout(15000),
     })
     if (!response.ok) return { proxies: [] }
@@ -576,7 +578,7 @@ function mergeUserinfo(all: UserinfoFields[]): UserinfoFields | undefined {
   return hasTraffic || merged.expire !== undefined ? merged : undefined
 }
 
-export async function resolveInput(urlParam: string): Promise<{ proxies: ClashProxy[], filename?: string, userinfo?: string }> {
+export async function resolveInput(urlParam: string, userAgent?: string): Promise<{ proxies: ClashProxy[], filename?: string, userinfo?: string }> {
   const urls = urlParam.split('|').map(u => u.trim()).filter(Boolean)
   const allProxies: ClashProxy[] = []
   const seen = new Set<string>()
@@ -590,7 +592,7 @@ export async function resolveInput(urlParam: string): Promise<{ proxies: ClashPr
     }
     catch { /* already decoded */ }
 
-    const { proxies, filename, userinfo: ui } = await fetchAndParse(url)
+    const { proxies, filename, userinfo: ui } = await fetchAndParse(url, userAgent)
     if (filename && !firstFilename) firstFilename = filename
     if (ui) userinfos.push(parseUserinfo(ui))
 
