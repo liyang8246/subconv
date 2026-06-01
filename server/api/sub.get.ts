@@ -1,6 +1,5 @@
 // @env node
 import { resolveInput } from '../engine/parser'
-import { processProxies } from '../engine/pipeline'
 import { generateClashConfig } from '../engine/generator'
 
 export default defineEventHandler(async (event) => {
@@ -18,18 +17,15 @@ export default defineEventHandler(async (event) => {
 
   try {
     const userAgent = getHeader(event, 'user-agent')
-    const { proxies: rawProxies, filename: upstreamFilename, userinfo } = await resolveInput(url, userAgent)
-    if (rawProxies.length === 0) {
+    const { proxies, filename: upstreamFilename, userinfo } = await resolveInput(url, userAgent)
+    if (proxies.length === 0) {
       setHeader(event, 'content-type', 'text/plain')
       return '# No proxies found'
     }
 
-    const processed = processProxies(rawProxies)
-    const config = generateClashConfig(processed, { preset })
+    const config = generateClashConfig(proxies, preset || undefined)
 
     setHeader(event, 'content-type', 'text/yaml; charset=utf-8')
-
-    // Forward upstream subscription-userinfo so Clash clients show traffic / expiry
     if (userinfo) setHeader(event, 'subscription-userinfo', userinfo)
 
     const filename = upstreamFilename || 'subscription'
