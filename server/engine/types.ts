@@ -1,3 +1,4 @@
+// @env node
 /** A Clash proxy node — fields pass through as-is for unknown protocol keys */
 export interface ClashProxy {
   name: string
@@ -38,9 +39,4 @@ export interface Preset {
   description: string
   rulesets: RulesetEntry[]
   groups: ProxyGroup[]
-}
-
-export interface ConvertOptions {
-  url: string
-  preset: string
 }

@@ -52,7 +52,6 @@ function buildProxyGroups(proxies: ClashProxy[], groups: ProxyGroup[]): object[]
       .filter(Boolean)
 
     const uniqueMembers = [...new Set(members)]
-    // Fallback to DIRECT when no proxies match — avoids Clash rejecting the config
     const proxiesList = uniqueMembers.length > 0 ? uniqueMembers : ['DIRECT']
 
     const result: Record<string, unknown> = {
@@ -84,11 +83,6 @@ function isClashRuleType(line: string): boolean {
   return [...CLASH_RULE_TYPES].some(t => upper.startsWith(t))
 }
 
-/**
- * Build Clash rules from ruleset entries.
- * Inserts the proxy-group before trailing flags (no-resolve, src, dst)
- * so Clash parsers the line correctly.
- */
 function buildRules(rulesets: RulesetEntry[]): string[] {
   const rules: string[] = []
 
@@ -121,22 +115,20 @@ function buildRules(rulesets: RulesetEntry[]): string[] {
   return rules
 }
 
-export function generateClashConfig(
-  proxies: ClashProxy[],
-  options: { preset?: string },
-): string {
+export function generateClashConfig(proxies: ClashProxy[], preset?: string): string {
   let rulesets: RulesetEntry[] = []
   let groups: ProxyGroup[] = []
 
-  if (options.preset) {
-    const preset = getPresetByName(options.preset)
-    if (preset) {
-      rulesets = preset.rulesets
-      groups = preset.groups
+  if (preset) {
+    const p = getPresetByName(preset)
+    if (p) {
+      rulesets = p.rulesets
+      groups = p.groups
     }
   }
 
-  const proxyGroups = buildProxyGroups(proxies, groups)
+  const sorted = [...proxies].sort((a, b) => a.name.localeCompare(b.name, 'zh'))
+  const proxyGroups = buildProxyGroups(sorted, groups)
   const rules = buildRules(rulesets)
 
   const config: Record<string, unknown> = {
@@ -144,7 +136,7 @@ export function generateClashConfig(
     'socks-port': 7891,
     mode: 'rule',
     ...BASE_CLASH_CONFIG,
-    proxies,
+    proxies: sorted,
     'proxy-groups': proxyGroups,
     rules,
   }
