@@ -25,22 +25,7 @@ function groupRefToMember(ref: GroupRef): string {
     case 'pattern': return ref.pattern
     case 'direct': return 'DIRECT'
     case 'reject': return 'REJECT'
-    default: return 'DIRECT'
   }
-}
-
-function resolveGroupMembers(ref: GroupRef, proxies: ClashProxy[], proxyNames: Set<string>): string[] {
-  if (ref.kind === 'pattern' && ref.pattern === '.*') {
-    return proxyNames.size > 0 ? [...proxyNames] : ['DIRECT']
-  }
-  if (ref.kind === 'pattern') {
-    try {
-      const re = new RegExp(ref.pattern)
-      return proxies.filter(p => re.test(p.name)).map(p => p.name)
-    }
-    catch { return [] }
-  }
-  return [groupRefToMember(ref)]
 }
 
 function buildProxyGroups(proxies: ClashProxy[], groups: ProxyGroup[]): object[] {
@@ -48,11 +33,22 @@ function buildProxyGroups(proxies: ClashProxy[], groups: ProxyGroup[]): object[]
 
   return groups.map((g) => {
     const members = g.refs
-      .flatMap(ref => resolveGroupMembers(ref, proxies, proxyNames))
+      .flatMap((ref) => {
+        if (ref.kind === 'pattern' && ref.pattern === '.*') {
+          return proxyNames.size > 0 ? [...proxyNames] : ['DIRECT']
+        }
+        if (ref.kind === 'pattern') {
+          try {
+            const re = new RegExp(ref.pattern)
+            return proxies.filter(p => re.test(p.name)).map(p => p.name)
+          }
+          catch { return [] }
+        }
+        return [groupRefToMember(ref)]
+      })
       .filter(Boolean)
 
-    const uniqueMembers = [...new Set(members)]
-    const proxiesList = uniqueMembers.length > 0 ? uniqueMembers : ['DIRECT']
+    const proxiesList = members.length > 0 ? [...new Set(members)] : ['DIRECT']
 
     const result: Record<string, unknown> = {
       name: g.name,
@@ -78,10 +74,7 @@ const CLASH_RULE_TYPES = [
   'SRC-PORT', 'DST-PORT', 'PROCESS-NAME',
 ]
 
-function isClashRuleType(line: string): boolean {
-  const upper = line.trim().toUpperCase()
-  return CLASH_RULE_TYPES.some(t => upper.startsWith(t))
-}
+const RULE_FLAGS = new Set(['no-resolve', 'src', 'dst'])
 
 function buildRules(rulesets: RulesetEntry[]): string[] {
   const rules: string[] = []
@@ -92,16 +85,15 @@ function buildRules(rulesets: RulesetEntry[]): string[] {
       if (!trimmed || trimmed.startsWith('#')) continue
 
       if (entry.inline) {
-        const isFinal = trimmed.toUpperCase() === 'FINAL' || trimmed.toUpperCase() === 'MATCH'
-        rules.push(isFinal ? `MATCH,${entry.group}` : `${trimmed},${entry.group}`)
+        const upper = trimmed.toUpperCase()
+        rules.push(upper === 'FINAL' || upper === 'MATCH' ? `MATCH,${entry.group}` : `${trimmed},${entry.group}`)
       }
       else {
-        if (!isClashRuleType(trimmed)) continue
+        if (!CLASH_RULE_TYPES.some(t => trimmed.toUpperCase().startsWith(t))) continue
 
         const parts = trimmed.split(',')
         const last = parts[parts.length - 1].trim().toLowerCase()
-        const flags = new Set(['no-resolve', 'src', 'dst'])
-        if (parts.length >= 3 && flags.has(last)) {
+        if (parts.length >= 3 && RULE_FLAGS.has(last)) {
           parts.splice(parts.length - 1, 0, entry.group)
           rules.push(parts.join(','))
         }
