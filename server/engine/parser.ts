@@ -126,24 +126,36 @@ function parseSS(uri: string): ClashProxy | null {
     const port = getPort(url, 8388)
     const name = extractName(url, server, port)
 
-    const userInfo = decodeURIComponent(url.username)
-    if (!userInfo) return null
-
+    // SIP002 with password in URL: ss://method:password@server:port
+    // url.password is non-empty → method is username, password is url.password
+    // Otherwise userInfo might be base64-encoded (original style) or method:password in username
     let method: string
     let password: string
-    if (/^[A-Za-z0-9+/=]+$/.test(userInfo) && userInfo.length > 4) {
-      const decoded = urlSafeBase64Decode(userInfo)
-      const colon = decoded.indexOf(':')
-      if (colon === -1) return null
-      method = decoded.slice(0, colon)
-      password = decoded.slice(colon + 1)
+
+    if (url.password) {
+      method = decodeURIComponent(url.username)
+      password = decodeURIComponent(url.password)
     }
     else {
-      const colon = userInfo.indexOf(':')
-      if (colon === -1) return null
-      method = userInfo.slice(0, colon)
-      password = userInfo.slice(colon + 1)
+      const userInfo = decodeURIComponent(url.username)
+      if (!userInfo) return null
+
+      if (/^[A-Za-z0-9+/=]+$/.test(userInfo) && userInfo.length > 4) {
+        const decoded = urlSafeBase64Decode(userInfo)
+        const colon = decoded.indexOf(':')
+        if (colon === -1) return null
+        method = decoded.slice(0, colon)
+        password = decoded.slice(colon + 1)
+      }
+      else {
+        const colon = userInfo.indexOf(':')
+        if (colon === -1) return null
+        method = userInfo.slice(0, colon)
+        password = userInfo.slice(colon + 1)
+      }
     }
+
+    if (!method) return null
 
     const result: Record<string, unknown> = {
       name,
