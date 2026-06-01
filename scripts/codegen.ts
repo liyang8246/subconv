@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 /**
  * Codegen script: converts ACL4SSR rule files into TypeScript modules.
  *
@@ -67,7 +69,7 @@ function ruleVarName(relativePath: string, prefix: string): string {
 function urlToLocalPath(source: string): string | null {
   if (source.startsWith('[]')) return null // inline rule
   const m = source.match(/Clash\/(.+?)\.list$/i)
-  if (!m) return null
+  if (!m || !m[1]) return null
   return m[1] // e.g. "BanAD" or "Ruleset/Netflix"
 }
 
@@ -227,8 +229,8 @@ function parseGroupDef(raw: string): ParsedGroup | null {
   const parts = raw.split('`')
   if (parts.length < 2) return null
 
-  const name = parts[0].trim()
-  const type = parts[1].trim()
+  const name = parts[0]!.trim()
+  const type = parts[1]!.trim()
 
   let url: string | undefined
   let interval = 300
@@ -239,21 +241,21 @@ function parseGroupDef(raw: string): ParsedGroup | null {
   // Scan backward for URL
   let refEnd = parts.length
   for (let i = parts.length - 1; i > 1; i--) {
-    const p = parts[i].trim()
+    const p = parts[i]!.trim()
     if (p.startsWith('http://') || p.startsWith('https://')) {
       url = p
       refEnd = i
       if (i + 1 < parts.length) {
-        const params = parts[i + 1].split(',')
-        interval = Number.parseInt(params[0].trim()) || 300
-        if (params.length > 1 && params[1].trim()) timeout = Number.parseInt(params[1].trim()) || 5000
-        if (params.length > 2 && params[2].trim()) tolerance = Number.parseInt(params[2].trim()) || 50
+        const params = parts[i + 1]!.split(',')
+        interval = Number.parseInt(params[0]!.trim()) || 300
+        if (params.length > 1 && params[1]!.trim()) timeout = Number.parseInt(params[1]!.trim()) || 5000
+        if (params.length > 2 && params[2]!.trim()) tolerance = Number.parseInt(params[2]!.trim()) || 50
       }
     }
   }
 
   for (let i = 2; i < refEnd; i++) {
-    const r = parts[i].trim()
+    const r = parts[i]!.trim()
     if (!r) continue
 
     if (r === 'DIRECT') {
@@ -319,7 +321,7 @@ function buildPresetCache(
 ): Map<string, PresetCacheEntry> {
   const cache = new Map<string, PresetCacheEntry>()
   const iniFiles = fs.readdirSync(CONFIG_DIR)
-    .filter(f => f.endsWith('.ini'))
+    .filter((f: string) => f.endsWith('.ini'))
     .sort()
 
   for (const iniFile of iniFiles) {
