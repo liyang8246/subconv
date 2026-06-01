@@ -7,13 +7,6 @@ export interface ClashProxy {
   [key: string]: unknown
 }
 
-export interface ClashSubscription {
-  proxies: ClashProxy[]
-  'proxy-groups'?: unknown[]
-  rules?: unknown[]
-  [key: string]: unknown
-}
-
 export type RuleLine = string
 
 export interface RulesetEntry {
@@ -48,26 +41,6 @@ export interface Preset {
 }
 
 export interface ConvertOptions {
-  target: 'clash'
   url: string
   preset: string
-  emoji?: boolean
-  exclude?: string
-  include?: string
-  rename?: [string, string][]
-  udp?: boolean
-  tfo?: boolean
-  scv?: boolean
-}
-
-export interface ConvertResult {
-  config: string
-  proxyCount: number
-  ruleCount: number
-  filename?: string
-}
-
-export interface EmojiRule {
-  pattern: RegExp
-  emoji: string
 }
