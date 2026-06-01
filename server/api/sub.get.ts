@@ -1,7 +1,5 @@
 // @env node
-import type { ConvertOptions } from '../engine/types'
 import { resolveInput } from '../engine/parser'
-import { processProxies } from '../engine/pipeline'
 import { generateClashConfig } from '../engine/generator'
 
 export default defineEventHandler(async (event) => {
@@ -14,40 +12,23 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const options: ConvertOptions = {
-    target: 'clash',
-    url: String(query.url),
-    preset: String(query.preset ?? ''),
-    emoji: query.emoji !== 'false',
-    exclude: query.exclude ? String(query.exclude) : undefined,
-    include: query.include ? String(query.include) : undefined,
-    rename: query.rename ? JSON.parse(String(query.rename)) : undefined,
-    udp: query.udp === 'true' ? true : undefined,
-    tfo: query.tfo === 'true' ? true : undefined,
-    scv: query.scv === 'true' ? true : undefined,
-  }
+  const url = String(query.url)
+  const preset = String(query.preset ?? '')
 
   try {
-    const { proxies: rawProxies, filename: upstreamFilename, userinfo } = await resolveInput(options.url)
-    if (rawProxies.length === 0) {
+    const userAgent = getHeader(event, 'user-agent')
+    const { proxies, filename: upstreamFilename, userinfo } = await resolveInput(url, userAgent)
+    if (proxies.length === 0) {
       setHeader(event, 'content-type', 'text/plain')
       return '# No proxies found'
     }
 
-    const processed = processProxies(rawProxies, options)
-    const config = generateClashConfig(processed, {
-      preset: options.preset,
-      port: Number(query.port) || 7890,
-      socksPort: Number(query.socksPort) || 7891,
-      mode: String(query.mode ?? 'rule'),
-    })
+    const config = generateClashConfig(proxies, preset || undefined)
 
     setHeader(event, 'content-type', 'text/yaml; charset=utf-8')
-
-    // Forward upstream subscription-userinfo so Clash clients show traffic / expiry
     if (userinfo) setHeader(event, 'subscription-userinfo', userinfo)
 
-    const filename = String(query.filename || upstreamFilename || 'subscription')
+    const filename = upstreamFilename || 'subscription'
     const encoded = encodeURIComponent(filename)
     setHeader(event, 'content-disposition', `attachment; filename="${encoded}.yaml"; filename*=UTF-8''${encoded}.yaml`)
 

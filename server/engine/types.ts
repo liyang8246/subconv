@@ -7,22 +7,11 @@ export interface ClashProxy {
   [key: string]: unknown
 }
 
-export interface ClashSubscription {
-  proxies: ClashProxy[]
-  'proxy-groups'?: unknown[]
-  rules?: unknown[]
-  [key: string]: unknown
-}
-
-export type RuleLine = string
-
 export interface RulesetEntry {
   group: string
-  rules: RuleLine[]
+  rules: string[]
   inline: boolean
 }
-
-export type GroupType = 'select' | 'url-test' | 'fallback' | 'load-balance'
 
 export type GroupRef =
   | { kind: 'group', name: string }
@@ -32,7 +21,7 @@ export type GroupRef =
 
 export interface ProxyGroup {
   name: string
-  type: GroupType
+  type: string
   refs: GroupRef[]
   url?: string
   interval?: number
@@ -45,29 +34,4 @@ export interface Preset {
   description: string
   rulesets: RulesetEntry[]
   groups: ProxyGroup[]
-}
-
-export interface ConvertOptions {
-  target: 'clash'
-  url: string
-  preset: string
-  emoji?: boolean
-  exclude?: string
-  include?: string
-  rename?: [string, string][]
-  udp?: boolean
-  tfo?: boolean
-  scv?: boolean
-}
-
-export interface ConvertResult {
-  config: string
-  proxyCount: number
-  ruleCount: number
-  filename?: string
-}
-
-export interface EmojiRule {
-  pattern: RegExp
-  emoji: string
 }

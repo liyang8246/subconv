@@ -5,6 +5,9 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-05-13',
   modules: ['@nuxt/eslint'],
   css: ['~/assets/main.css'],
+  typescript: {
+    typeCheck: true,
+  },
   app: {
     head: {
       title: 'Zolin的订阅转换站',
