@@ -28,7 +28,8 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const { proxies: rawProxies, filename: upstreamFilename, userinfo } = await resolveInput(options.url)
+    const userAgent = getHeader(event, 'user-agent')
+    const { proxies: rawProxies, filename: upstreamFilename, userinfo } = await resolveInput(options.url, userAgent)
     if (rawProxies.length === 0) {
       setHeader(event, 'content-type', 'text/plain')
       return '# No proxies found'
