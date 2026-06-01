@@ -10,7 +10,12 @@ function safeUrl(uri: string): URL | null {
 }
 
 function extractName(url: URL, server: string, port: number): string {
-  return decodeURIComponent(url.hash?.replace('#', '') || `${server}:${port}`)
+  try {
+    return decodeURIComponent(url.hash?.replace('#', '') || `${server}:${port}`)
+  }
+  catch {
+    return `${server}:${port}`
+  }
 }
 
 function getPort(url: URL, fallback = 443): number {
@@ -113,56 +118,61 @@ function extractFilename(cd: string | null): string | undefined {
 
 /** Parse SS link: ss://base64(method:password)@server:port#name or ss://method:password@server:port#name */
 function parseSS(uri: string): ClashProxy | null {
-  const url = safeUrl(uri)
-  if (!url) return null
+  try {
+    const url = safeUrl(uri)
+    if (!url) return null
 
-  const server = url.hostname
-  const port = getPort(url, 8388)
-  const name = extractName(url, server, port)
+    const server = url.hostname
+    const port = getPort(url, 8388)
+    const name = extractName(url, server, port)
 
-  const userInfo = decodeURIComponent(url.username)
-  if (!userInfo) return null
+    const userInfo = decodeURIComponent(url.username)
+    if (!userInfo) return null
 
-  let method: string
-  let password: string
-  if (/^[A-Za-z0-9+/=]+$/.test(userInfo) && userInfo.length > 4) {
-    const decoded = urlSafeBase64Decode(userInfo)
-    const colon = decoded.indexOf(':')
-    if (colon === -1) return null
-    method = decoded.slice(0, colon)
-    password = decoded.slice(colon + 1)
-  }
-  else {
-    const colon = userInfo.indexOf(':')
-    if (colon === -1) return null
-    method = userInfo.slice(0, colon)
-    password = userInfo.slice(colon + 1)
-  }
-
-  const result: Record<string, unknown> = {
-    name,
-    type: 'ss',
-    server,
-    port,
-    cipher: method,
-    password,
-  }
-
-  const plugin = url.searchParams.get('plugin')
-  if (plugin) {
-    const parts = plugin.split(';')
-    const pluginName = parts[0]
-    const pluginOpts = parts[1] || ''
-    result.plugin = pluginName
-    result['plugin-opts'] = {
-      mode: new URLSearchParams(pluginOpts).get('mode') || 'websocket',
-      host: new URLSearchParams(pluginOpts).get('host') || '',
-      path: new URLSearchParams(pluginOpts).get('path') || '/',
-      tls: new URLSearchParams(pluginOpts).get('tls') === 'true',
+    let method: string
+    let password: string
+    if (/^[A-Za-z0-9+/=]+$/.test(userInfo) && userInfo.length > 4) {
+      const decoded = urlSafeBase64Decode(userInfo)
+      const colon = decoded.indexOf(':')
+      if (colon === -1) return null
+      method = decoded.slice(0, colon)
+      password = decoded.slice(colon + 1)
     }
-  }
+    else {
+      const colon = userInfo.indexOf(':')
+      if (colon === -1) return null
+      method = userInfo.slice(0, colon)
+      password = userInfo.slice(colon + 1)
+    }
 
-  return result as ClashProxy
+    const result: Record<string, unknown> = {
+      name,
+      type: 'ss',
+      server,
+      port,
+      cipher: method,
+      password,
+    }
+
+    const plugin = url.searchParams.get('plugin')
+    if (plugin) {
+      const parts = plugin.split(';')
+      const pluginName = parts[0]
+      const pluginOpts = parts[1] || ''
+      result.plugin = pluginName
+      result['plugin-opts'] = {
+        mode: new URLSearchParams(pluginOpts).get('mode') || 'websocket',
+        host: new URLSearchParams(pluginOpts).get('host') || '',
+        path: new URLSearchParams(pluginOpts).get('path') || '/',
+        tls: new URLSearchParams(pluginOpts).get('tls') === 'true',
+      }
+    }
+
+    return result as ClashProxy
+  }
+  catch {
+    return null
+  }
 }
 
 /** Parse VMess link: vmess://base64(json) */
@@ -238,146 +248,166 @@ function parseSSR(uri: string): ClashProxy | null {
 
 /** Parse Trojan link: trojan://password@server:port?peer=sni&allowInsecure=1#name */
 function parseTrojan(uri: string): ClashProxy | null {
-  const url = safeUrl(uri)
-  if (!url) return null
+  try {
+    const url = safeUrl(uri)
+    if (!url) return null
 
-  const password = url.username || url.password
-  const server = url.hostname
-  const port = getPort(url)
-  const name = extractName(url, server, port)
-  const sni = url.searchParams.get('sni') || url.searchParams.get('peer') || server
-  const skipCert = url.searchParams.get('allowInsecure') === '1' || url.searchParams.get('skip-cert-verify') === 'true'
+    const password = url.username || url.password
+    const server = url.hostname
+    const port = getPort(url)
+    const name = extractName(url, server, port)
+    const sni = url.searchParams.get('sni') || url.searchParams.get('peer') || server
+    const skipCert = url.searchParams.get('allowInsecure') === '1' || url.searchParams.get('skip-cert-verify') === 'true'
 
-  return {
-    name,
-    'type': 'trojan',
-    server,
-    port,
-    password,
-    sni,
-    'skip-cert-verify': skipCert || undefined,
-    'udp': url.searchParams.has('udp') ? url.searchParams.get('udp') === '1' : undefined,
-  } as ClashProxy
+    return {
+      name,
+      'type': 'trojan',
+      server,
+      port,
+      password,
+      sni,
+      'skip-cert-verify': skipCert || undefined,
+      'udp': url.searchParams.has('udp') ? url.searchParams.get('udp') === '1' : undefined,
+    } as ClashProxy
+  }
+  catch {
+    return null
+  }
 }
 
 /** Parse VLESS link: vless://uuid@server:port?encryption=none&security=tls&type=ws&... */
 function parseVLESS(uri: string): ClashProxy | null {
-  const url = safeUrl(uri)
-  if (!url) return null
+  try {
+    const url = safeUrl(uri)
+    if (!url) return null
 
-  const uuid = url.username
-  const server = url.hostname
-  const port = getPort(url)
-  const name = extractName(url, server, port)
+    const uuid = url.username
+    const server = url.hostname
+    const port = getPort(url)
+    const name = extractName(url, server, port)
 
-  const security = url.searchParams.get('security') || 'none'
-  const encryption = url.searchParams.get('encryption') || 'none'
-  const networkType = url.searchParams.get('type') || 'tcp'
-  const sni = url.searchParams.get('sni') || server
-  const flow = url.searchParams.get('flow') || undefined
-  const realityKey = url.searchParams.get('pbk') || undefined
-  const fingerprint = url.searchParams.get('fp') || undefined
+    const security = url.searchParams.get('security') || 'none'
+    const encryption = url.searchParams.get('encryption') || 'none'
+    const networkType = url.searchParams.get('type') || 'tcp'
+    const sni = url.searchParams.get('sni') || server
+    const flow = url.searchParams.get('flow') || undefined
+    const realityKey = url.searchParams.get('pbk') || undefined
+    const fingerprint = url.searchParams.get('fp') || undefined
 
-  const result: Record<string, unknown> = {
-    name,
-    'type': 'vless',
-    server,
-    port,
-    uuid,
-    encryption,
-    'network': networkType,
-    sni,
-    'servername': sni,
-    'flow': flow || undefined,
-    'reality-opts': realityKey
-      ? {
-        'public-key': realityKey,
-        'short-id': url.searchParams.get('sid') || '',
+    const result: Record<string, unknown> = {
+      name,
+      'type': 'vless',
+      server,
+      port,
+      uuid,
+      encryption,
+      'network': networkType,
+      sni,
+      'servername': sni,
+      'flow': flow || undefined,
+      'reality-opts': realityKey
+        ? {
+          'public-key': realityKey,
+          'short-id': url.searchParams.get('sid') || '',
+        }
+        : undefined,
+      fingerprint,
+    }
+
+    if (security === 'tls' || security === 'reality') {
+      result.tls = true
+    }
+
+    if (networkType === 'ws') {
+      result['ws-opts'] = {
+        path: url.searchParams.get('path') || '/',
+        headers: {
+          Host: url.searchParams.get('host') || sni,
+        },
       }
-      : undefined,
-    fingerprint,
-  }
-
-  if (security === 'tls' || security === 'reality') {
-    result.tls = true
-  }
-
-  if (networkType === 'ws') {
-    result['ws-opts'] = {
-      path: url.searchParams.get('path') || '/',
-      headers: {
-        Host: url.searchParams.get('host') || sni,
-      },
     }
-  }
 
-  if (networkType === 'grpc') {
-    result['grpc-opts'] = {
-      'grpc-service-name': url.searchParams.get('serviceName') || '',
+    if (networkType === 'grpc') {
+      result['grpc-opts'] = {
+        'grpc-service-name': url.searchParams.get('serviceName') || '',
+      }
     }
-  }
 
-  return result as ClashProxy
+    return result as ClashProxy
+  }
+  catch {
+    return null
+  }
 }
 
 /** Parse Hysteria2 link: hysteria2://password@server:port?sni=...&insecure=1&... */
 function parseHysteria2(uri: string): ClashProxy | null {
-  const url = safeUrl(uri)
-  if (!url) return null
+  try {
+    const url = safeUrl(uri)
+    if (!url) return null
 
-  const password = url.username
-  const server = url.hostname
-  const port = getPort(url)
-  const name = extractName(url, server, port)
-  const sni = url.searchParams.get('sni') || server
-  const skipCert = url.searchParams.get('insecure') === '1'
-  const obfs = url.searchParams.get('obfs') || undefined
-  const obfsPassword = url.searchParams.get('obfs-password') || undefined
-  const upMbps = url.searchParams.has('upmbps') ? Number(url.searchParams.get('upmbps')) : undefined
-  const downMbps = url.searchParams.has('downmbps') ? Number(url.searchParams.get('downmbps')) : undefined
+    const password = url.username
+    const server = url.hostname
+    const port = getPort(url)
+    const name = extractName(url, server, port)
+    const sni = url.searchParams.get('sni') || server
+    const skipCert = url.searchParams.get('insecure') === '1'
+    const obfs = url.searchParams.get('obfs') || undefined
+    const obfsPassword = url.searchParams.get('obfs-password') || undefined
+    const upMbps = url.searchParams.has('upmbps') ? Number(url.searchParams.get('upmbps')) : undefined
+    const downMbps = url.searchParams.has('downmbps') ? Number(url.searchParams.get('downmbps')) : undefined
 
-  return {
-    name,
-    'type': 'hysteria2',
-    server,
-    port,
-    password,
-    sni,
-    'skip-cert-verify': skipCert || undefined,
-    obfs,
-    'obfs-password': obfsPassword,
-    'up': upMbps,
-    'down': downMbps,
-  } as ClashProxy
+    return {
+      name,
+      'type': 'hysteria2',
+      server,
+      port,
+      password,
+      sni,
+      'skip-cert-verify': skipCert || undefined,
+      obfs,
+      'obfs-password': obfsPassword,
+      'up': upMbps,
+      'down': downMbps,
+    } as ClashProxy
+  }
+  catch {
+    return null
+  }
 }
 
 /** Parse TUIC link: tuic://uuid:password@server:port?sni=...&... */
 function parseTUIC(uri: string): ClashProxy | null {
-  const url = safeUrl(uri)
-  if (!url) return null
+  try {
+    const url = safeUrl(uri)
+    if (!url) return null
 
-  const uuid = url.username
-  const password = url.password
-  const server = url.hostname
-  const port = getPort(url)
-  const name = extractName(url, server, port)
-  const sni = url.searchParams.get('sni') || server
-  const skipCert = url.searchParams.get('allow_insecure') === '1'
-  const alpn = url.searchParams.get('alpn') ? url.searchParams.get('alpn')!.split(',') : undefined
-  const congestion = url.searchParams.get('congestion_control') || 'cubic'
+    const uuid = url.username
+    const password = url.password
+    const server = url.hostname
+    const port = getPort(url)
+    const name = extractName(url, server, port)
+    const sni = url.searchParams.get('sni') || server
+    const skipCert = url.searchParams.get('allow_insecure') === '1'
+    const alpn = url.searchParams.get('alpn') ? url.searchParams.get('alpn')!.split(',') : undefined
+    const congestion = url.searchParams.get('congestion_control') || 'cubic'
 
-  return {
-    name,
-    'type': 'tuic',
-    server,
-    port,
-    uuid,
-    password,
-    sni,
-    'skip-cert-verify': skipCert || undefined,
-    alpn,
-    'congestion-controller': congestion,
-  } as ClashProxy
+    return {
+      name,
+      'type': 'tuic',
+      server,
+      port,
+      uuid,
+      password,
+      sni,
+      'skip-cert-verify': skipCert || undefined,
+      alpn,
+      'congestion-controller': congestion,
+    } as ClashProxy
+  }
+  catch {
+    return null
+  }
 }
 
 /** Parse a single share link line into a ClashProxy */
