@@ -21,7 +21,7 @@ Clash 订阅转换器: Nuxt 4 + Nitro serverless app. The browser assembles a `/
 
 ## Behaviors easy to break
 - The `/api/sub` API takes only `url` + `preset`. `url` may be `|`-separated. Everything else (emoji, filter, rename, udp/tfo/scv, port/mode, filename) was intentionally removed — do not re-add query params without updating `README.md`.
-- Emoji prefixing is **always on** in `generator.ts` (via `emoji.ts`) and deliberately has no API option: every proxy name gets a region flag, falling back to `🏳️`. Ordering is sort by original name → emoji → build groups, so group matching sees the emoji-prefixed names.
+- Emoji prefixing is **always on** in `generator.ts` (via `emoji.ts`) and deliberately has no API option: every proxy name gets a region flag, falling back to `🏳️`. Ordering is sort by original name → emoji → build groups, so group matching sees the emoji-prefixed names. `emoji.ts` rules are first-match-wins: keep prefix-conflicting regions first (澳门 before 澳大利亚, 印度尼西亚 before 印度, 德国/法兰克福 before 法国) and keep `\b` around short ISO codes.
 - `resolveInput` accepts `|`-separated upstreams, URL-decodes each, dedupes by `type:server:port:name`, and merges upstream `subscription-userinfo` (traffic summed, earliest `expire`).
 - Generator appends the target group to each ruleset `.list` line and drops non-Clash rule types; proxy groups with no matching nodes fall back to `DIRECT` so Clash doesn't reject the config. Empty `rules` are deleted.
 - Upstream fetch forwards the client's `User-Agent` (`resolveInput(url, userAgent)` ← `getHeader(event, 'user-agent')`) with a 15s timeout; failures return empty proxies instead of erroring (API then returns `# No proxies found`).
