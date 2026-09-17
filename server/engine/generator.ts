@@ -2,6 +2,7 @@
 import { stringify } from 'yaml'
 import type { ClashProxy, ProxyGroup, RulesetEntry, GroupRef } from './types'
 import { getPresetByName } from '../codegen'
+import { applyEmoji } from './emoji'
 
 const BASE_CLASH_CONFIG = {
   'allow-lan': false,
@@ -120,7 +121,8 @@ export function generateClashConfig(proxies: ClashProxy[], preset?: string): str
   }
 
   const sorted = [...proxies].sort((a, b) => a.name.localeCompare(b.name, 'zh'))
-  const proxyGroups = buildProxyGroups(sorted, groups)
+  const named = applyEmoji(sorted)
+  const proxyGroups = buildProxyGroups(named, groups)
   const rules = buildRules(rulesets)
 
   const config: Record<string, unknown> = {
@@ -128,7 +130,7 @@ export function generateClashConfig(proxies: ClashProxy[], preset?: string): str
     'socks-port': 7891,
     mode: 'rule',
     ...BASE_CLASH_CONFIG,
-    proxies: sorted,
+    proxies: named,
     'proxy-groups': proxyGroups,
     rules,
   }

@@ -11,7 +11,7 @@ Clash 订阅转换器 — 多上游聚合、规则预设、纯前端 URL 拼装�
 ```
 GET /api/sub?url=<订阅链接>&preset=<预设名>
 ```
-可选参数：`emoji` `exclude` `include` `rename` `udp` `tfo` `scv` `port` `socksPort` `mode` `filename`
+`url` 支持用 `|` 分隔多个订阅链接以合并。节点名会自动添加国旗 Emoji（无开关）。可用预设见 `GET /api/presets`。
 
 ### 本地开发
 ```bash
