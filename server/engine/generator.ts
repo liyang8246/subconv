@@ -51,7 +51,9 @@ function buildProxyGroups(proxies: ClashProxy[], groups: ProxyGroup[]): object[]
   const proxyNames = new Set(proxies.map(p => p.name))
 
   // A group whose refs match no node (e.g. a region the user has no nodes for)
-  // is dropped entirely, and references to it are removed from other groups.
+  // is dropped entirely, and references to it (or to a group that no longer
+  // exists in this preset) are removed from other groups.
+  const known = new Set(groups.map(g => g.name))
   const dropped = new Set(
     groups.filter(g => resolveMembers(g.refs, proxies, proxyNames).length === 0).map(g => g.name),
   )
@@ -59,7 +61,7 @@ function buildProxyGroups(proxies: ClashProxy[], groups: ProxyGroup[]): object[]
   return groups
     .filter(g => !dropped.has(g.name))
     .map((g) => {
-      const refs = g.refs.filter(ref => !(ref.kind === 'group' && dropped.has(ref.name)))
+      const refs = g.refs.filter(ref => !(ref.kind === 'group' && (!known.has(ref.name) || dropped.has(ref.name))))
       const members = resolveMembers(refs, proxies, proxyNames)
       const proxiesList = members.length > 0 ? [...new Set(members)] : ['DIRECT']
 
