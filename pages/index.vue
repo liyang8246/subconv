@@ -144,11 +144,12 @@ async function copyShortLink() {
           />
           <button
             class="btn join-item btn-soft"
+            title="生成短链"
             :disabled="!generatedLink || generatingShort"
             @click="handleShorten"
           >
             <span v-if="generatingShort" class="loading loading-spinner loading-xs"></span>
-            <span v-else>生成</span>
+            <span v-else class="icon-[tabler--link]"></span>
           </button>
           <button
             class="btn join-item btn-soft"
