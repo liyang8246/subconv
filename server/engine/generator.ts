@@ -16,9 +16,16 @@ const BASE_CLASH_CONFIG = {
     'listen': '0.0.0.0:1053',
     'enhanced-mode': 'fake-ip',
     'fake-ip-range': '198.18.0.1/16',
-    'nameserver': ['114.114.114.114', '223.5.5.5'],
-    'fallback': ['8.8.8.8', '1.1.1.1'],
-    'fallback-filter': { 'geoip': true, 'geoip-code': 'CN' },
+    // 解析下面 DoH 服务器自身域名用（必须是 IP）
+    'default-nameserver': ['223.5.5.5', '119.29.29.29'],
+    // 默认走国内 DoH：CN 域名拿到正确且 CDN 就近的结果
+    'nameserver': ['https://doh.pub/dns-query', 'https://dns.alidns.com/dns-query'],
+    // 节点域名单独解析，避免"连节点前要先解析节点"的死循环
+    'proxy-server-nameserver': ['https://doh.pub/dns-query', 'https://dns.alidns.com/dns-query'],
+    // 只有已知被墙域名走海外 DNS（域名维度判断，替代旧的按 IP 归属判断的 fallback-filter）
+    'nameserver-policy': {
+      'geosite:gfw': ['https://1.1.1.1/dns-query', 'https://8.8.8.8/dns-query'],
+    },
   },
 }
 
