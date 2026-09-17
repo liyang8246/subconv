@@ -49,6 +49,14 @@ custom_proxy_group=🇺🇲 美国节点`url-test`(美|US|United States)`http://
 1. **文件名决定代码归属**：顶层 `.list` 进 `rules.ts`，`Ruleset/*.list` 进 `ruleset.ts`，变量名前缀分别为 `Main*` / `Ruleset*`。按上面的目录放就自动满足。
 2. **规则引用必须能映射到本地文件**，否则该 ruleset 会被静默丢弃。用 `https://.../Clash/Foo.list` 或 `https://.../Clash/Ruleset/Foo.list` 的形式即可。
 
+## 地区正则注意（写国家/地区分组时）
+
+- `custom_proxy_group` 的匹配正则**不带 `i` 标志**，大小写变体要自己写全（如 `\b(HK|hk)\b`）。
+- 各分组的分桶是**互相独立**的，同一个节点可以落进多个组。前缀冲突要用负向断言，例如：
+  - 澳大利亚用 `澳(?!门)`，否则 `澳门` 会同时落进大洋洲
+  - 印度用 `印度(?!尼西亚)`，否则 `印度尼西亚` 会同时落进印度
+- 短代码加 `\b`，避免 `AUS-01` 被 `\bUS\b` 之外的裸 `US` 命中。
+
 ## 生效方式
 
 ```bash
