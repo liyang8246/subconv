@@ -1,7 +1,30 @@
+/// <reference types="node" />
+
 // @env node
 // Subscription parser: detect format (YAML / Base64 / share links), decode, extract proxies
 import type { ClashProxy } from './types'
 import { parse as parseYaml } from 'yaml'
+
+// ── URL helpers (eliminate repetition across protocol parsers) ──
+
+function safeUrl(uri: string): URL | null {
+  try { return new URL(uri) } catch { return null }
+}
+
+function extractName(url: URL, server: string, port: number): string {
+  try {
+    return decodeURIComponent(url.hash?.replace('#', '') || `${server}:${port}`)
+  }
+  catch {
+    return `${server}:${port}`
+  }
+}
+
+function getPort(url: URL, fallback = 443): number {
+  return Number.parseInt(url.port) || fallback
+}
+
+// ── Format detection ──
 
 function isShareLinkContent(text: string): boolean {
   return /^(ss|ssr|vmess|trojan|vless|hysteria2?|tuic):\/\//m.test(text.trim())
@@ -24,19 +47,15 @@ function base64Decode(str: string): string {
 function looksLikeBase64(str: string): boolean {
   const trimmed = str.trim()
   if (trimmed.length === 0) return false
-  // If it already looks like YAML or share links, skip
   if (isYaml(trimmed) || isShareLinkContent(trimmed)) return false
   return /^[A-Za-z0-9+/=\s\r\n]+$/.test(trimmed) && trimmed.length > 20
 }
-
-// Share link parsers
 
 function urlSafeBase64Decode(str: string): string {
   try {
     const base64 = str
       .replace(/-/g, '+')
       .replace(/_/g, '/')
-    // Pad if needed
     const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
     return Buffer.from(padded, 'base64').toString('utf-8')
   }
@@ -45,36 +64,103 @@ function urlSafeBase64Decode(str: string): string {
   }
 }
 
+// ── YAML parsing ──
+
+function tryParseYaml(text: string): ClashProxy[] {
+  try {
+    const doc = parseYaml(text) as Record<string, unknown>
+    if (doc && typeof doc === 'object') {
+      return extractProxies(doc)
+    }
+  }
+  catch { /* not valid YAML */ }
+  return []
+}
+
+function extractProxies(doc: Record<string, unknown>): ClashProxy[] {
+  const raw = (doc.proxies || doc.Proxy || []) as ClashProxy[]
+  return raw.map(p => ({
+    ...p,
+    name: String(p.name ?? ''),
+    type: String(p.type ?? ''),
+    server: String(p.server ?? ''),
+    port: Number(p.port ?? 0),
+  }))
+}
+
+// ── Content-Disposition parsing ──
+
+function extractFilename(cd: string | null): string | undefined {
+  if (!cd) return undefined
+
+  // 1. Prefer RFC 5987 filename*=charset'lang'percent-encoded
+  const starMatch = cd.match(/filename\*=(?:"[^"]*"|'[^']*'|(?:UTF-8|utf-8)''([^;]*)|[^;]*)/i)
+  if (starMatch) {
+    const encoded = starMatch[1] || starMatch[0].split("''")[1] || ''
+    if (encoded) {
+      try {
+        return decodeURIComponent(encoded.trim()).replace(/\.(yaml|yml)$/i, '')
+      }
+      catch {
+        return encoded.trim().replace(/\.(yaml|yml)$/i, '')
+      }
+    }
+  }
+
+  // 2. Fallback to plain filename="..."
+  const plainMatch = cd.match(/filename\s*=\s*((['"])(.*?)\2|[^;]*)/i)
+  if (plainMatch) {
+    const raw = plainMatch[3] || plainMatch[1]
+    if (raw) {
+      return raw.replace(/['"]/g, '').replace(/\.(yaml|yml)$/i, '')
+    }
+  }
+
+  return undefined
+}
+
+// ── Share link parsers ──
+
 /** Parse SS link: ss://base64(method:password)@server:port#name or ss://method:password@server:port#name */
 function parseSS(uri: string): ClashProxy | null {
   try {
-    const url = new URL(uri)
+    const url = safeUrl(uri)
+    if (!url) return null
+
     const server = url.hostname
-    const port = Number.parseInt(url.port) || 8388
-    const name = decodeURIComponent(url.hash?.replace('#', '') || `${server}:${port}`)
+    const port = getPort(url, 8388)
+    const name = extractName(url, server, port)
 
-    // SS original style: ss://base64(method:password)@server:port
-    // SIP002 style: ss://method:password@server:port
-    const userInfo = decodeURIComponent(url.username)
-    if (!userInfo) return null
-
-    // If userInfo is pure base64, decode it (original style)
+    // SIP002 with password in URL: ss://method:password@server:port
+    // url.password is non-empty → method is username, password is url.password
+    // Otherwise userInfo might be base64-encoded (original style) or method:password in username
     let method: string
     let password: string
-    if (/^[A-Za-z0-9+/=]+$/.test(userInfo) && userInfo.length > 4) {
-      const decoded = urlSafeBase64Decode(userInfo)
-      const colon = decoded.indexOf(':')
-      if (colon === -1) return null
-      method = decoded.slice(0, colon)
-      password = decoded.slice(colon + 1)
+
+    if (url.password) {
+      method = decodeURIComponent(url.username)
+      password = decodeURIComponent(url.password)
     }
     else {
-      // SIP002: method:password in the user part
-      const colon = userInfo.indexOf(':')
-      if (colon === -1) return null
-      method = userInfo.slice(0, colon)
-      password = userInfo.slice(colon + 1)
+      const userInfo = decodeURIComponent(url.username)
+      if (!userInfo) return null
+
+      if (/^[A-Za-z0-9+/=]+$/.test(userInfo) && userInfo.length > 4) {
+        const decoded = urlSafeBase64Decode(userInfo)
+        const colon = decoded.indexOf(':')
+        if (colon === -1) return null
+        method = decoded.slice(0, colon)
+        password = decoded.slice(colon + 1)
+      }
+      else {
+        const colon = userInfo.indexOf(':')
+        if (colon === -1) return null
+        method = userInfo.slice(0, colon)
+        password = userInfo.slice(colon + 1)
+      }
     }
+
+    if (!method) return null
 
     const result: Record<string, unknown> = {
       name,
@@ -85,7 +171,6 @@ function parseSS(uri: string): ClashProxy | null {
       password,
     }
 
-    // Plugin
     const plugin = url.searchParams.get('plugin')
     if (plugin) {
       const parts = plugin.split(';')
@@ -143,20 +228,19 @@ function parseSSR(uri: string): ClashProxy | null {
     const body = uri.replace('ssr://', '')
     const decoded = urlSafeBase64Decode(body.trim())
 
-    // SSR format: server:port:protocol:method:obfs:base64password/?params
     const mainAndParams = decoded.split('/?')
-    const main = mainAndParams[0].split(':')
+    const mainPart = mainAndParams[0]
+    if (!mainPart) return null
 
+    const main = mainPart.split(':')
     if (main.length < 6) return null
 
-    const server = main[0]
-    const port = Number.parseInt(main[1]) || 443
-    const protocol = main[2]
-    const method = main[3]
-    const obfs = main[4]
-    const password = urlSafeBase64Decode(main[5])
+    const [server, portStr, protocol, method, obfs, passwordB64] = main
+    if (!server || !portStr || !protocol || !method || !obfs || !passwordB64) return null
 
-    // Parse params
+    const port = Number.parseInt(portStr) || 443
+    const password = urlSafeBase64Decode(passwordB64)
+
     const params = new URLSearchParams(mainAndParams[1] || '')
     const name = urlSafeBase64Decode(params.get('remarks') || '') || `${server}:${port}`
     const obfsParam = urlSafeBase64Decode(params.get('obfsparam') || '')
@@ -183,11 +267,13 @@ function parseSSR(uri: string): ClashProxy | null {
 /** Parse Trojan link: trojan://password@server:port?peer=sni&allowInsecure=1#name */
 function parseTrojan(uri: string): ClashProxy | null {
   try {
-    const url = new URL(uri)
+    const url = safeUrl(uri)
+    if (!url) return null
+
     const password = url.username || url.password
     const server = url.hostname
-    const port = Number.parseInt(url.port) || 443
-    const name = decodeURIComponent(url.hash?.replace('#', '') || `${server}:${port}`)
+    const port = getPort(url)
+    const name = extractName(url, server, port)
     const sni = url.searchParams.get('sni') || url.searchParams.get('peer') || server
     const skipCert = url.searchParams.get('allowInsecure') === '1' || url.searchParams.get('skip-cert-verify') === 'true'
 
@@ -210,11 +296,13 @@ function parseTrojan(uri: string): ClashProxy | null {
 /** Parse VLESS link: vless://uuid@server:port?encryption=none&security=tls&type=ws&... */
 function parseVLESS(uri: string): ClashProxy | null {
   try {
-    const url = new URL(uri)
+    const url = safeUrl(uri)
+    if (!url) return null
+
     const uuid = url.username
     const server = url.hostname
-    const port = Number.parseInt(url.port) || 443
-    const name = decodeURIComponent(url.hash?.replace('#', '') || `${server}:${port}`)
+    const port = getPort(url)
+    const name = extractName(url, server, port)
 
     const security = url.searchParams.get('security') || 'none'
     const encryption = url.searchParams.get('encryption') || 'none'
@@ -248,7 +336,6 @@ function parseVLESS(uri: string): ClashProxy | null {
       result.tls = true
     }
 
-    // WebSocket opts
     if (networkType === 'ws') {
       result['ws-opts'] = {
         path: url.searchParams.get('path') || '/',
@@ -258,7 +345,6 @@ function parseVLESS(uri: string): ClashProxy | null {
       }
     }
 
-    // gRPC opts
     if (networkType === 'grpc') {
       result['grpc-opts'] = {
         'grpc-service-name': url.searchParams.get('serviceName') || '',
@@ -275,11 +361,13 @@ function parseVLESS(uri: string): ClashProxy | null {
 /** Parse Hysteria2 link: hysteria2://password@server:port?sni=...&insecure=1&... */
 function parseHysteria2(uri: string): ClashProxy | null {
   try {
-    const url = new URL(uri)
+    const url = safeUrl(uri)
+    if (!url) return null
+
     const password = url.username
     const server = url.hostname
-    const port = Number.parseInt(url.port) || 443
-    const name = decodeURIComponent(url.hash?.replace('#', '') || `${server}:${port}`)
+    const port = getPort(url)
+    const name = extractName(url, server, port)
     const sni = url.searchParams.get('sni') || server
     const skipCert = url.searchParams.get('insecure') === '1'
     const obfs = url.searchParams.get('obfs') || undefined
@@ -309,12 +397,14 @@ function parseHysteria2(uri: string): ClashProxy | null {
 /** Parse TUIC link: tuic://uuid:password@server:port?sni=...&... */
 function parseTUIC(uri: string): ClashProxy | null {
   try {
-    const url = new URL(uri)
+    const url = safeUrl(uri)
+    if (!url) return null
+
     const uuid = url.username
     const password = url.password
     const server = url.hostname
-    const port = Number.parseInt(url.port) || 443
-    const name = decodeURIComponent(url.hash?.replace('#', '') || `${server}:${port}`)
+    const port = getPort(url)
+    const name = extractName(url, server, port)
     const sni = url.searchParams.get('sni') || server
     const skipCert = url.searchParams.get('allow_insecure') === '1'
     const alpn = url.searchParams.get('alpn') ? url.searchParams.get('alpn')!.split(',') : undefined
@@ -353,7 +443,7 @@ function parseShareLink(line: string): ClashProxy | null {
   if (trimmed.startsWith('trojan://')) return parseTrojan(trimmed)
   if (trimmed.startsWith('vless://')) return parseVLESS(trimmed)
   if (trimmed.startsWith('hysteria2://') || trimmed.startsWith('hy2://')) return parseHysteria2(trimmed)
-  if (trimmed.startsWith('hysteria://')) return parseHysteria2(trimmed) // Fallback
+  if (trimmed.startsWith('hysteria://')) return parseHysteria2(trimmed)
   if (trimmed.startsWith('tuic://')) return parseTUIC(trimmed)
 
   return null
@@ -363,7 +453,7 @@ function parseShareLink(line: string): ClashProxy | null {
  * Parse a block of share links (one per line) into ClashProxy[].
  * Each line is a share link like ss://... or vmess://...
  */
-export function parseShareLinks(content: string): ClashProxy[] {
+function parseShareLinks(content: string): ClashProxy[] {
   const lines = content.split('\n')
   const proxies: ClashProxy[] = []
 
@@ -379,96 +469,62 @@ export function parseShareLinks(content: string): ClashProxy[] {
   return proxies
 }
 
-// YAML parsing
-
-export function extractProxies(doc: Record<string, unknown>): ClashProxy[] {
-  const raw = (doc.proxies || doc.Proxy || []) as ClashProxy[]
-  return raw.map(p => ({
-    ...p,
-    name: String(p.name ?? ''),
-    type: String(p.type ?? ''),
-    server: String(p.server ?? ''),
-    port: Number(p.port ?? 0),
-  }))
-}
-
-// Main content parsing
+// ── Main content parsing ──
 
 /**
  * Parse any subscription content.
  * Detects: YAML, Base64→YAML, Base64→share links, raw share links.
+ *
+ * Priority: YAML → share links → base64 decode → (share links → YAML → double-base64)
  */
-export function parseContent(text: string): ClashProxy[] {
+function parseContent(text: string): ClashProxy[] {
   const trimmed = text.trim()
   if (!trimmed) return []
 
-  // If it's already YAML, parse as Clash config
-  if (isYaml(trimmed)) {
-    try {
-      const doc = parseYaml(trimmed) as Record<string, unknown>
-      if (doc && typeof doc === 'object') {
-        const proxies = extractProxies(doc)
-        if (proxies.length > 0) return proxies
-      }
-    }
-    catch {
-      // Not valid YAML, continue
-    }
-  }
+  // Collect candidates: raw text + optional base64-decoded layers
+  const candidates = [trimmed]
 
-  // If it looks like share links directly
-  if (isShareLinkContent(trimmed)) {
-    return parseShareLinks(trimmed)
-  }
-
-  // Try Base64 decode
   if (looksLikeBase64(trimmed)) {
-    let decoded = base64Decode(trimmed).trim()
+    const decoded = base64Decode(trimmed).trim()
+    candidates.push(decoded)
+    if (looksLikeBase64(decoded)) {
+      candidates.push(base64Decode(decoded).trim())
+    }
+  }
 
-    // Check decoded content
-    if (isShareLinkContent(decoded)) {
-      return parseShareLinks(decoded)
+  for (const candidate of candidates) {
+    // Try YAML
+    if (isYaml(candidate)) {
+      const proxies = tryParseYaml(candidate)
+      if (proxies.length > 0) return proxies
     }
 
-    if (isYaml(decoded)) {
-      try {
-        const doc = parseYaml(decoded) as Record<string, unknown>
-        return extractProxies(doc)
-      }
-      catch {
-        // Try one more Base64 layer
-        if (looksLikeBase64(decoded)) {
-          decoded = base64Decode(decoded).trim()
-          if (isShareLinkContent(decoded)) {
-            return parseShareLinks(decoded)
-          }
-          if (isYaml(decoded)) {
-            try {
-              const doc2 = parseYaml(decoded) as Record<string, unknown>
-              return extractProxies(doc2)
-            }
-            catch { /* fall through */ }
-          }
-        }
-      }
+    // Try share links
+    if (isShareLinkContent(candidate)) {
+      const proxies = parseShareLinks(candidate)
+      if (proxies.length > 0) return proxies
     }
 
-    // If nothing matched, try parsing decoded as plain share links anyway
-    const proxies = parseShareLinks(decoded)
+    // Fallback: try as share links even if not detected by isShareLinkContent
+    const proxies = parseShareLinks(candidate)
     if (proxies.length > 0) return proxies
   }
 
   return []
 }
 
-export async function fetchAndParse(url: string): Promise<{ proxies: ClashProxy[], filename?: string, userinfo?: string }> {
+// ── HTTP fetching ──
+
+export async function fetchAndParse(url: string, userAgent?: string): Promise<{ proxies: ClashProxy[], filename?: string, userinfo?: string }> {
   try {
+    const headers: Record<string, string> = {
+      'Accept': 'text/plain, application/yaml, */*',
+      'Profile-Update-Interval': '24',
+    }
+    if (userAgent) headers['User-Agent'] = userAgent
+
     const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Clash Verge/2.5.1',
-        'Accept': 'text/plain, application/yaml, */*',
-        'Profile-Update-Interval': '24',
-      },
+      headers,
       signal: AbortSignal.timeout(15000),
     })
     if (!response.ok) return { proxies: [] }
@@ -476,36 +532,7 @@ export async function fetchAndParse(url: string): Promise<{ proxies: ClashProxy[
     // Forward upstream subscription-userinfo (traffic/expiry) so Clash clients can display it
     const userinfo = response.headers.get('subscription-userinfo') || undefined
 
-    // Try to extract filename from upstream Content-Disposition header
-    let filename: string | undefined
-    const cd = response.headers.get('content-disposition')
-    if (cd) {
-      // 1. Prefer RFC 5987 filename*=UTF-8''percent-encoded
-      const starMatch = cd.match(/filename\*=(?:"[^"]*"|'[^']*'|(?:UTF-8|utf-8)''([^;]*)|[^;]*)/i)
-      if (starMatch) {
-        // Group 1 is the percent-encoded part after charset'lang'
-        const encoded = starMatch[1] || starMatch[0].split("''")[1] || ''
-        if (encoded) {
-          try {
-            filename = decodeURIComponent(encoded.trim())
-          }
-          catch {
-            filename = encoded.trim()
-          }
-        }
-      }
-      if (!filename) {
-        // 2. Fallback to plain filename="..."
-        const plainMatch = cd.match(/filename\s*=\s*((['"])(.*?)\2|[^;]*)/i)
-        if (plainMatch) {
-          filename = (plainMatch[3] || plainMatch[1]).replace(/['"]/g, '')
-        }
-      }
-      // Strip extension
-      if (filename) {
-        filename = filename.replace(/\.(yaml|yml)$/i, '')
-      }
-    }
+    const filename = extractFilename(response.headers.get('content-disposition'))
 
     const text = await response.text()
     const proxies = parseContent(text)
@@ -515,6 +542,8 @@ export async function fetchAndParse(url: string): Promise<{ proxies: ClashProxy[
     return { proxies: [] }
   }
 }
+
+// ── Userinfo handling (private) ──
 
 interface UserinfoFields {
   upload?: number
@@ -576,7 +605,9 @@ function mergeUserinfo(all: UserinfoFields[]): UserinfoFields | undefined {
   return hasTraffic || merged.expire !== undefined ? merged : undefined
 }
 
-export async function resolveInput(urlParam: string): Promise<{ proxies: ClashProxy[], filename?: string, userinfo?: string }> {
+// ── Multi-URL resolution ──
+
+export async function resolveInput(urlParam: string, userAgent?: string): Promise<{ proxies: ClashProxy[], filename?: string, userinfo?: string }> {
   const urls = urlParam.split('|').map(u => u.trim()).filter(Boolean)
   const allProxies: ClashProxy[] = []
   const seen = new Set<string>()
@@ -590,7 +621,7 @@ export async function resolveInput(urlParam: string): Promise<{ proxies: ClashPr
     }
     catch { /* already decoded */ }
 
-    const { proxies, filename, userinfo: ui } = await fetchAndParse(url)
+    const { proxies, filename, userinfo: ui } = await fetchAndParse(url, userAgent)
     if (filename && !firstFilename) firstFilename = filename
     if (ui) userinfos.push(parseUserinfo(ui))
 
