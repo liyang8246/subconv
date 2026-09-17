@@ -7,6 +7,8 @@ import { applyEmoji } from './emoji'
 const BASE_CLASH_CONFIG = {
   'allow-lan': false,
   'log-level': 'info',
+  'unified-delay': true,
+  'tcp-concurrent': true,
   'external-controller': '0.0.0.0:9090',
   'secret': '',
   'dns': {
