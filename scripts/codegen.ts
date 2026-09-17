@@ -90,7 +90,8 @@ function buildRuleMap(): Map<string, RuleMapEntry> {
       const full = path.join(dir, entry)
       const stat = fs.statSync(full)
       if (stat.isFile() && entry.endsWith('.list')) {
-        const rel = path.relative(CLASH_DIR, full)
+        // Normalize to forward slashes so Windows matches URL-derived paths (e.g. "Ruleset/AI")
+        const rel = path.relative(CLASH_DIR, full).replace(/\\/g, '/')
         const localPath = rel.replace(/\.list$/i, '')
         const lines = readFileLines(full)
         if (lines.length > 0) {
