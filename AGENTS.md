@@ -10,7 +10,8 @@ Clash 订阅转换器: Nuxt 4 + Nitro serverless app. The browser assembles a `/
 ## Generated code — do not edit by hand
 - `server/codegen/` is gitignored and produced by `pnpm codegen` (`scripts/codegen.ts`).
 - It compiles `ACL4SSR/Clash/*.list` + `Clash/Ruleset/*.list` → `rules.ts` / `ruleset.ts`, and `ACL4SSR/Clash/config/*.ini` → `presets.ts` (`Preset` objects) + `index.ts`.
-- The engine imports from `../codegen`; TS errors on an unresolved `../codegen` until codegen runs. Re-run `pnpm codegen` after updating the submodule or editing `scripts/codegen.ts`.
+- Repo-local rules/presets belong in `custom/Clash/` (same layout: `*.list`, `Ruleset/*.list`, `config/*.ini`). Codegen scans it **last**, so a custom file at the same logical path overrides ACL4SSR. Never patch the `ACL4SSR` submodule directly — changes there aren't committed and `git submodule update` resets them. See `custom/README.md`.
+- The engine imports from `../codegen`; TS errors on an unresolved `../codegen` until codegen runs. Re-run `pnpm codegen` after updating the submodule, editing `custom/`, or editing `scripts/codegen.ts`.
 
 ## Layout / entrypoints
 - Frontend files sit at the repo root (no `app/` dir): `app.vue`, `pages/index.vue`, `composables/useSubConverter.ts`, `assets/main.css`.
