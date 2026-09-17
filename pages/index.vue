@@ -4,12 +4,18 @@ const selectedPreset = ref('')
 const generatedLink = ref('')
 const shortLink = ref('')
 const shortcutService = ref('v1.mk')
+const generatingShort = ref(false)
 
 const presets = await usePresets()
 
 const presetDescription = computed(() => {
   if (!selectedPreset.value) return ''
   return presets.value.find(p => p.id === selectedPreset.value)?.description || ''
+})
+
+// Short link is service-specific — reset it whenever the service changes
+watch(shortcutService, () => {
+  shortLink.value = ''
 })
 
 async function handleGenerate() {
@@ -29,8 +35,14 @@ async function handleGenerate() {
   if (selectedPreset.value) params.set('preset', selectedPreset.value)
   generatedLink.value = `${window.location.origin}/api/sub?${params.toString()}`
 
-  // Generate short link in parallel
+  // The link changed, so any previously generated short link is stale
   shortLink.value = ''
+}
+
+async function handleShorten() {
+  if (!generatedLink.value || generatingShort.value) return
+
+  generatingShort.value = true
   try {
     const { shortUrl } = await $fetch<{ shortUrl: string }>('/api/shorten', {
       method: 'POST',
@@ -38,7 +50,12 @@ async function handleGenerate() {
     })
     shortLink.value = shortUrl
   }
-  catch { /* shorten service may be unavailable */ }
+  catch {
+    shortLink.value = ''
+  }
+  finally {
+    generatingShort.value = false
+  }
 }
 
 async function copyLink() {
@@ -125,6 +142,14 @@ async function copyShortLink() {
             :value="shortLink"
             placeholder="待生成订阅短链..."
           />
+          <button
+            class="btn join-item btn-soft"
+            :disabled="!generatedLink || generatingShort"
+            @click="handleShorten"
+          >
+            <span v-if="generatingShort" class="loading loading-spinner loading-xs"></span>
+            <span v-else>生成</span>
+          </button>
           <button
             class="btn join-item btn-soft"
             :disabled="!shortLink"
