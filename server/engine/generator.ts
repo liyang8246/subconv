@@ -29,43 +29,55 @@ function groupRefToMember(ref: GroupRef): string {
   }
 }
 
+function resolveMembers(refs: GroupRef[], proxies: ClashProxy[], proxyNames: Set<string>): string[] {
+  return refs
+    .flatMap((ref) => {
+      if (ref.kind === 'pattern' && ref.pattern === '.*') {
+        return proxyNames.size > 0 ? [...proxyNames] : ['DIRECT']
+      }
+      if (ref.kind === 'pattern') {
+        try {
+          const re = new RegExp(ref.pattern)
+          return proxies.filter(p => re.test(p.name)).map(p => p.name)
+        }
+        catch { return [] }
+      }
+      return [groupRefToMember(ref)]
+    })
+    .filter(Boolean)
+}
+
 function buildProxyGroups(proxies: ClashProxy[], groups: ProxyGroup[]): object[] {
   const proxyNames = new Set(proxies.map(p => p.name))
 
-  return groups.map((g) => {
-    const members = g.refs
-      .flatMap((ref) => {
-        if (ref.kind === 'pattern' && ref.pattern === '.*') {
-          return proxyNames.size > 0 ? [...proxyNames] : ['DIRECT']
-        }
-        if (ref.kind === 'pattern') {
-          try {
-            const re = new RegExp(ref.pattern)
-            return proxies.filter(p => re.test(p.name)).map(p => p.name)
-          }
-          catch { return [] }
-        }
-        return [groupRefToMember(ref)]
-      })
-      .filter(Boolean)
+  // A group whose refs match no node (e.g. a region the user has no nodes for)
+  // is dropped entirely, and references to it are removed from other groups.
+  const dropped = new Set(
+    groups.filter(g => resolveMembers(g.refs, proxies, proxyNames).length === 0).map(g => g.name),
+  )
 
-    const proxiesList = members.length > 0 ? [...new Set(members)] : ['DIRECT']
+  return groups
+    .filter(g => !dropped.has(g.name))
+    .map((g) => {
+      const refs = g.refs.filter(ref => !(ref.kind === 'group' && dropped.has(ref.name)))
+      const members = resolveMembers(refs, proxies, proxyNames)
+      const proxiesList = members.length > 0 ? [...new Set(members)] : ['DIRECT']
 
-    const result: Record<string, unknown> = {
-      name: g.name,
-      type: g.type,
-      proxies: proxiesList,
-    }
+      const result: Record<string, unknown> = {
+        name: g.name,
+        type: g.type,
+        proxies: proxiesList,
+      }
 
-    if (g.url && g.type !== 'select') {
-      result.url = g.url
-      result.interval = g.interval ?? 300
-      if (g.tolerance !== undefined) result.tolerance = g.tolerance
-      if (g.timeout !== undefined) result.timeout = g.timeout
-    }
+      if (g.url && g.type !== 'select') {
+        result.url = g.url
+        result.interval = g.interval ?? 300
+        if (g.tolerance !== undefined) result.tolerance = g.tolerance
+        if (g.timeout !== undefined) result.timeout = g.timeout
+      }
 
-    return result
-  })
+      return result
+    })
 }
 
 const CLASH_RULE_TYPES = [
