@@ -277,10 +277,14 @@ async function copyShortLink() {
         <div v-if="previewLoading" class="py-10 text-center">
           <span class="loading loading-spinner"></span>
         </div>
-        <pre
-          v-else
-          class="max-h-[60vh] overflow-auto rounded-box bg-base-200 p-3 text-xs whitespace-pre"
-        >{{ previewContent }}</pre>
+        <ClientOnly v-else>
+          <CodeEditor
+            :model-value="previewContent"
+            language="yaml"
+            readonly
+            height-class="h-[60vh]"
+          />
+        </ClientOnly>
         <div class="modal-action">
           <button class="btn" @click="previewOpen = false">关闭</button>
         </div>
