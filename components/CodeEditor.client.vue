@@ -29,12 +29,12 @@ onMounted(() => {
       basicSetup,
       props.language === 'yaml' ? yaml() : javascript(),
       oneDark,
-      EditorView.lineWrapping,
       EditorView.editable.of(!props.readonly),
       EditorView.theme({
         '&': { height: '100%', fontSize: '14px' },
         '.cm-scroller': {
           fontFamily: '"Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+          overflowY: 'auto',
         },
       }),
       EditorView.updateListener.of((update) => {
