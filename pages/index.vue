@@ -1,10 +1,22 @@
 <script setup lang="ts">
+import { Base64 } from 'js-base64'
+
+const DEFAULT_SCRIPT = `function main(config, profileName) {
+  return config;
+}`
+
 const url = ref('')
 const selectedPreset = ref('')
 const generatedLink = ref('')
 const shortLink = ref('')
 const shortcutService = ref('v1.mk')
 const generatingShort = ref(false)
+
+const scriptEnabled = ref(false)
+const script = ref(DEFAULT_SCRIPT)
+const previewOpen = ref(false)
+const previewLoading = ref(false)
+const previewContent = ref('')
 
 const presets = await usePresets()
 
@@ -18,25 +30,71 @@ watch(shortcutService, () => {
   shortLink.value = ''
 })
 
-async function handleGenerate() {
-  if (!url.value.trim()) return
+// The link embeds the script, so any script edit makes a generated link stale
+watch([script, scriptEnabled], () => {
+  generatedLink.value = ''
+  shortLink.value = ''
+})
 
-  const pipeUrl = url.value
+function buildPipeUrl(): string {
+  return url.value
     .trim()
     .split('\n')
     .map(s => s.trim())
     .filter(Boolean)
     .join('|')
+}
 
-  if (!pipeUrl) return
-
+/** Build the query string for the conversion API (script is base64url-encoded by js-base64). */
+function buildQueryParams(pipeUrl: string): URLSearchParams {
   const params = new URLSearchParams()
   params.set('url', pipeUrl)
   if (selectedPreset.value) params.set('preset', selectedPreset.value)
-  generatedLink.value = `${window.location.origin}/api/sub?${params.toString()}`
+  if (scriptEnabled.value && script.value.trim()) params.set('script', Base64.encodeURI(script.value))
+  return params
+}
+
+function errorMessage(err: unknown): string {
+  if (typeof err === 'object' && err !== null) {
+    const e = err as {
+      data?: { statusMessage?: string, message?: string }
+      statusMessage?: string
+      message?: string
+    }
+    return e.data?.statusMessage || e.data?.message || e.statusMessage || e.message || '未知错误'
+  }
+  return String(err)
+}
+
+async function handleGenerate() {
+  const pipeUrl = buildPipeUrl()
+  if (!pipeUrl) return
+
+  generatedLink.value = `${window.location.origin}/api/sub?${buildQueryParams(pipeUrl).toString()}`
 
   // The link changed, so any previously generated short link is stale
   shortLink.value = ''
+}
+
+async function handlePreview() {
+  const pipeUrl = buildPipeUrl()
+  if (!pipeUrl || previewLoading.value) return
+
+  previewOpen.value = true
+  previewLoading.value = true
+  previewContent.value = ''
+  try {
+    previewContent.value = await $fetch<string>(
+      `/api/sub?${buildQueryParams(pipeUrl).toString()}`,
+      { responseType: 'text' },
+    )
+  }
+  catch (err: unknown) {
+    previewContent.value = `预览失败：${errorMessage(err)}`
+  }
+  finally {
+    previewLoading.value = false
+  }
 }
 
 async function handleShorten() {
@@ -111,6 +169,40 @@ async function copyShortLink() {
               预设详情查看 <a href="https://github.com/ACL4SSR/ACL4SSR/tree/master" target="_blank" class="link link-hover">ACL4SSR</a>
             </span>
           </fieldset>
+
+          <fieldset class="fieldset">
+            <label class="label cursor-pointer justify-start gap-2">
+              <input v-model="scriptEnabled" type="checkbox" class="toggle toggle-sm">
+              <span>启用脚本</span>
+            </label>
+
+            <template v-if="scriptEnabled">
+              <ClientOnly>
+                <CodeEditor v-model="script" />
+                <template #fallback>
+                  <textarea
+                    v-model="script"
+                    class="textarea h-64 w-full font-mono text-xs"
+                    placeholder="function main(config, profileName) { return config }"
+                  ></textarea>
+                </template>
+              </ClientOnly>
+              <div class="flex items-center gap-2">
+                <button
+                  class="btn btn-sm btn-soft"
+                  :disabled="!url.trim() || previewLoading"
+                  @click="handlePreview"
+                >
+                  <span v-if="previewLoading" class="loading loading-spinner loading-xs"></span>
+                  <span v-else class="icon-[tabler--eye]"></span>
+                  预览结果
+                </button>
+                <span class="label whitespace-normal wrap-break-word">
+                  QuickJS WASM 限制 1 秒
+                </span>
+              </div>
+            </template>
+          </fieldset>
         </div>
 
         <div class="divider mt-0 mb-2"></div>
@@ -178,5 +270,24 @@ async function copyShortLink() {
         </div>
       </div>
     </div>
+
+    <dialog class="modal" :class="{ 'modal-open': previewOpen }" @close="previewOpen = false">
+      <div class="modal-box max-w-4xl">
+        <h3 class="text-lg font-bold">配置预览</h3>
+        <div v-if="previewLoading" class="py-10 text-center">
+          <span class="loading loading-spinner"></span>
+        </div>
+        <pre
+          v-else
+          class="max-h-[60vh] overflow-auto rounded-box bg-base-200 p-3 text-xs whitespace-pre"
+        >{{ previewContent }}</pre>
+        <div class="modal-action">
+          <button class="btn" @click="previewOpen = false">关闭</button>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="previewOpen = false">close</button>
+      </form>
+    </dialog>
   </div>
 </template>

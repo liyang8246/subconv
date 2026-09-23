@@ -131,7 +131,8 @@ function buildRules(rulesets: RulesetEntry[]): string[] {
   return rules
 }
 
-export function generateClashConfig(proxies: ClashProxy[], preset?: string): string {
+/** Build the complete Clash config object (before serialization). */
+export function buildClashConfig(proxies: ClashProxy[], preset?: string): Record<string, unknown> {
   let rulesets: RulesetEntry[] = []
   let groups: ProxyGroup[] = []
 
@@ -160,5 +161,14 @@ export function generateClashConfig(proxies: ClashProxy[], preset?: string): str
 
   if (rules.length === 0) delete config.rules
 
+  return config
+}
+
+/** Serialize a Clash config object with the project's YAML options. */
+export function stringifyConfig(config: unknown): string {
   return stringify(config, { indent: 2, lineWidth: 0, sortMapEntries: false })
+}
+
+export function generateClashConfig(proxies: ClashProxy[], preset?: string): string {
+  return stringifyConfig(buildClashConfig(proxies, preset))
 }

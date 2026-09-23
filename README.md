@@ -9,9 +9,11 @@ Clash 订阅转换器 — 多上游聚合、规则预设、纯前端 URL 拼装�
 
 ### GET API
 ```
-GET /api/sub?url=<订阅链接>&preset=<预设名>
+GET /api/sub?url=<订阅链接>&preset=<预设名>&script=<base64url 编码的 JS>
 ```
 `url` 支持用 `|` 分隔多个订阅链接以合并。节点名会自动添加国旗 Emoji（无开关）。可用预设见 `GET /api/presets`。
+
+`script`（可选）为 UTF-8 源码的 base64url 编码，需定义 `main(config, profileName)` 并返回 config，在 QuickJS WASM 沙箱中执行（无网络/文件访问，限 1 秒）。
 
 ### 本地开发
 ```bash
