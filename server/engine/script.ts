@@ -29,6 +29,9 @@ export class ScriptError extends Error {
   }
 }
 
+/** Lines prepended before the user script in the evaluated wrapper (see {@link runScript}). */
+const SCRIPT_WRAPPER_LINES = 2
+
 /** Extract a readable message from whatever `evalCode` threw (string, Error, or plain object). */
 function scriptErrorMessage(err: unknown): string {
   if (typeof err === 'string') return err
@@ -43,6 +46,15 @@ function scriptErrorMessage(err: unknown): string {
     return String(e.name || err)
   }
   return String(err)
+}
+
+/** Line within the user script that a QuickJS error points at, or undefined if it is outside it. */
+function scriptErrorLine(err: unknown): number | undefined {
+  if (!err || typeof err !== 'object') return undefined
+  const line = (err as { lineNumber?: unknown }).lineNumber
+  if (typeof line !== 'number' || !Number.isFinite(line)) return undefined
+  const userLine = line - SCRIPT_WRAPPER_LINES
+  return userLine >= 1 ? userLine : undefined
 }
 
 /**
@@ -84,7 +96,8 @@ export async function runScript(
     if (/out of memory|memory limit/i.test(message)) {
       throw new ScriptError('脚本内存超限')
     }
-    throw new ScriptError(message)
+    const line = scriptErrorLine(err)
+    throw new ScriptError(line ? `${message}（脚本第 ${line} 行）` : message)
   }
 
   if (result === null || typeof result !== 'object' || Array.isArray(result)) {
